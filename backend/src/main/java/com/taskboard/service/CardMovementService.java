@@ -70,6 +70,24 @@ public class CardMovementService {
         // Validate the move
         validateMove(card, newList);
 
+        // Lock the affected list(s) to serialize concurrent position changes.
+        // Always acquire locks in a consistent order (by ID) to prevent deadlocks.
+        long oldListId2 = card.getList().getId();
+        long newListId2 = newList.getId();
+        if (oldListId2 <= newListId2) {
+            listRepository.findByIdForUpdate(oldListId2)
+                    .orElseThrow(() -> new ResourceNotFoundException("List", "id", oldListId2));
+            if (oldListId2 != newListId2) {
+                listRepository.findByIdForUpdate(newListId2)
+                        .orElseThrow(() -> new ResourceNotFoundException("List", "id", newListId2));
+            }
+        } else {
+            listRepository.findByIdForUpdate(newListId2)
+                    .orElseThrow(() -> new ResourceNotFoundException("List", "id", newListId2));
+            listRepository.findByIdForUpdate(oldListId2)
+                    .orElseThrow(() -> new ResourceNotFoundException("List", "id", oldListId2));
+        }
+
         // Store old values for event
         Long oldListId = card.getList().getId();
         String oldListName = card.getList().getName();

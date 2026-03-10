@@ -1,7 +1,9 @@
 package com.taskboard.repository;
 
 import com.taskboard.model.entity.BoardList;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,6 +28,15 @@ public interface ListRepository extends JpaRepository<BoardList, Long> {
      */
     @Query("SELECT l FROM BoardList l LEFT JOIN FETCH l.cards WHERE l.id = :id")
     Optional<BoardList> findByIdWithCards(@Param("id") Long id);
+
+    /**
+     * Lock a list row for update to serialize concurrent position changes.
+     * Use this before any operation that reads and then modifies card positions
+     * within this list, to prevent lost-update race conditions under READ COMMITTED.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT l FROM BoardList l WHERE l.id = :id")
+    Optional<BoardList> findByIdForUpdate(@Param("id") Long id);
 
     /**
      * Get the maximum position in a board.

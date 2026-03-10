@@ -84,6 +84,10 @@ public class CardService {
         User creator = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
+        // Lock the list row to serialize concurrent position calculations
+        listRepository.findByIdForUpdate(request.getListId())
+                .orElseThrow(() -> new ResourceNotFoundException("List", "id", request.getListId()));
+
         // Determine position
         Integer position = request.getPosition();
         if (position == null) {

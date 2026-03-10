@@ -70,6 +70,10 @@ public class ListService {
         Board board = boardRepository.findByIdAndArchivedFalse(request.getBoardId())
                 .orElseThrow(() -> new ResourceNotFoundException("Board", "id", request.getBoardId()));
 
+        // Lock the board row to serialize concurrent list position calculations
+        boardRepository.findByIdForUpdate(request.getBoardId())
+                .orElseThrow(() -> new ResourceNotFoundException("Board", "id", request.getBoardId()));
+
         // Determine position
         Integer position = request.getPosition();
         if (position == null) {

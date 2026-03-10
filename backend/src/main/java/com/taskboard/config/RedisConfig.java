@@ -9,6 +9,7 @@ import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.repository.configuration.EnableRedisRepositories;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
@@ -23,6 +24,7 @@ import java.util.Map;
  */
 @Configuration
 @EnableCaching
+@EnableRedisRepositories(basePackages = "com.taskboard.repository.redis")
 public class RedisConfig {
 
     @Value("${taskboard.cache.default-ttl:60}")
@@ -62,17 +64,10 @@ public class RedisConfig {
         // Cache-specific configurations
         Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
 
-        // Boards cache with specific TTL
+        // Boards cache - covers full board DTOs (board + lists + cards)
         cacheConfigurations.put("boards", defaultConfig
                 .entryTtl(Duration.ofMinutes(boardsTtlMinutes)));
 
-        // Cards cache
-        cacheConfigurations.put("cards", defaultConfig
-                .entryTtl(Duration.ofMinutes(15)));
-
-        // Lists cache
-        cacheConfigurations.put("lists", defaultConfig
-                .entryTtl(Duration.ofMinutes(20)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
