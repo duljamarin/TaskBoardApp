@@ -3,6 +3,7 @@ package com.taskboard.messaging.producer;
 import com.taskboard.model.event.BoardCreatedEvent;
 import com.taskboard.model.event.CardCreatedEvent;
 import com.taskboard.model.event.CardMovedEvent;
+import com.taskboard.model.event.CommentAddedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -34,6 +35,9 @@ public class EventPublisher {
 
     @Value("${taskboard.rabbitmq.routing-key.board-created:board.created}")
     private String boardCreatedRoutingKey;
+
+    @Value("${taskboard.rabbitmq.routing-key.comment-added:comment.added}")
+    private String commentAddedRoutingKey;
 
     /**
      * Publish a card moved event.
@@ -80,6 +84,23 @@ public class EventPublisher {
             log.info("Successfully published BoardCreatedEvent for board: {}", event.getBoardName());
         } catch (Exception e) {
             log.error("Failed to publish BoardCreatedEvent: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Publish a comment added event.
+     * Routes through the card-events exchange so no new exchange is needed.
+     */
+    public void publishCommentAdded(CommentAddedEvent event) {
+        try {
+            log.debug("Publishing CommentAddedEvent: commentId={}, cardId={}",
+                    event.getCommentId(), event.getCardId());
+
+            rabbitTemplate.convertAndSend(cardEventsExchange, commentAddedRoutingKey, event);
+
+            log.info("Successfully published CommentAddedEvent on card: {}", event.getCardTitle());
+        } catch (Exception e) {
+            log.error("Failed to publish CommentAddedEvent: {}", e.getMessage(), e);
         }
     }
 }

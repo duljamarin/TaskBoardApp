@@ -111,6 +111,15 @@ public class RabbitMQConfig {
                 .with("board.created");
     }
 
+    // Bindings for comment events
+    // Comments route to notifications only — they are not an analytics workflow metric.
+    @Bean
+    public Binding notificationsCommentAddedBinding(Queue notificationsQueue, DirectExchange cardEventsExchange) {
+        return BindingBuilder.bind(notificationsQueue)
+                .to(cardEventsExchange)
+                .with("comment.added");
+    }
+
     // Dead letter binding
     @Bean
     public Binding deadLetterBinding(Queue deadLetterQueue, DirectExchange deadLetterExchange) {

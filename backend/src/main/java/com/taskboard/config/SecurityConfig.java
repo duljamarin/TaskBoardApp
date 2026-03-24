@@ -54,6 +54,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/boards/**").authenticated()
                 .requestMatchers("/api/v1/cards/**").authenticated()
                 .requestMatchers("/api/v1/lists/**").authenticated()
+                .requestMatchers("/api/v1/comments/**").authenticated()
                 // Admin endpoints
                 .requestMatchers("/actuator/**").hasRole("ADMIN")
                 .anyRequest().authenticated()

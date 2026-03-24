@@ -3,6 +3,7 @@ package com.taskboard.messaging.consumer;
 import com.taskboard.model.event.BoardCreatedEvent;
 import com.taskboard.model.event.CardCreatedEvent;
 import com.taskboard.model.event.CardMovedEvent;
+import com.taskboard.model.event.CommentAddedEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
@@ -49,6 +50,19 @@ public class NotificationConsumer {
         log.info("New board '{}' created", event.getBoardName());
         log.info("Description: {}", event.getDescription());
         log.info("Created by: {}", event.getCreatedByUsername());
+        log.info("Timestamp: {}", event.getTimestamp());
+    }
+
+    /**
+     * Handle comment added events.
+     * In production: notify the card assignee and board members via email/push.
+     */
+    @RabbitListener(queues = "${taskboard.rabbitmq.queue.notifications:taskboard.notifications}")
+    public void handleCommentAddedEvent(CommentAddedEvent event) {
+        log.info("=== NOTIFICATION: Comment Added ===");
+        log.info("'{}' commented on card '{}' in board '{}'",
+                event.getAuthorUsername(), event.getCardTitle(), event.getBoardName());
+        log.info("Preview: {}", event.getContentPreview());
         log.info("Timestamp: {}", event.getTimestamp());
     }
 }

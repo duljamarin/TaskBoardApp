@@ -4,6 +4,7 @@ import { useBoardStore } from '../../store/boardStore';
 import { Modal } from '../common/Modal';
 import { Input } from '../common/Input';
 import { Button } from '../common/Button';
+import { CommentSection } from './CommentSection';
 
 interface CardDetailsModalProps {
   isOpen: boolean;
@@ -184,6 +185,9 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ isOpen, onCl
               <div>Updated: {new Date(card.updatedAt).toLocaleString()}</div>
             </div>
           </div>
+
+          {/* Comments thread */}
+          <CommentSection cardId={card.id} />
 
           <div className="flex justify-between pt-4">
             <Button variant="danger" onClick={handleDelete} loading={loading}>

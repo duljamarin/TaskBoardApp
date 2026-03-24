@@ -4,8 +4,10 @@ import com.taskboard.exception.ResourceNotFoundException;
 import com.taskboard.model.entity.Board;
 import com.taskboard.model.entity.BoardList;
 import com.taskboard.model.entity.Card;
+import com.taskboard.model.entity.Comment;
 import com.taskboard.repository.BoardRepository;
 import com.taskboard.repository.CardRepository;
+import com.taskboard.repository.CommentRepository;
 import com.taskboard.repository.ListRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,9 +27,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthorizationService {
 
-    private final BoardRepository boardRepository;
-    private final ListRepository listRepository;
-    private final CardRepository cardRepository;
+    private final BoardRepository   boardRepository;
+    private final ListRepository    listRepository;
+    private final CardRepository    cardRepository;
+    private final CommentRepository commentRepository;
 
     /**
      * Check if current user is admin.
@@ -170,6 +173,20 @@ public class AuthorizationService {
         }
 
         throw new AccessDeniedException("Invalid authentication principal");
+    }
+
+    /**
+     * Check if current user can modify (edit/delete) a comment.
+     * Admins and the original author are allowed.
+     */
+    @Transactional(readOnly = true)
+    public boolean canModifyComment(Long commentId) {
+        if (isAdmin()) return true;
+        UserPrincipal user = getCurrentUser();
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comment", "id", commentId));
+        return comment.getAuthor() != null
+                && comment.getAuthor().getId().equals(user.getId());
     }
 
     /**

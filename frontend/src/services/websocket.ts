@@ -17,6 +17,7 @@ class WebSocketService {
   private connected: boolean = false;
   private subscriptions: Map<string, any> = new Map();
   private messageCallbacks: Map<number, MessageCallback[]> = new Map();
+  private cardCallbacks: Map<number, MessageCallback[]> = new Map();
 
   /**
    * Connect to WebSocket server with JWT authentication
@@ -130,6 +131,58 @@ class WebSocketService {
   }
 
   /**
+   * Subscribe to card-level events (e.g. comments added/updated/deleted)
+   */
+  subscribeToCard(cardId: number, callback: MessageCallback): void {
+    if (!this.client || !this.connected) {
+      console.warn('⚠️ WebSocket not connected. Cannot subscribe to card:', cardId);
+      return;
+    }
+
+    const destination = `/topic/card/${cardId}`;
+    const subscriptionKey = `card-${cardId}`;
+
+    if (!this.cardCallbacks.has(cardId)) {
+      this.cardCallbacks.set(cardId, []);
+    }
+    this.cardCallbacks.get(cardId)?.push(callback);
+
+    if (this.subscriptions.has(subscriptionKey)) {
+      console.log('📡 Already subscribed to card:', cardId);
+      return;
+    }
+
+    const subscription = this.client.subscribe(destination, (message: IMessage) => {
+      try {
+        const data: WebSocketMessage = JSON.parse(message.body);
+        console.log('📨 Received card WebSocket message:', data);
+        const callbacks = this.cardCallbacks.get(cardId) || [];
+        callbacks.forEach((cb) => cb(data));
+      } catch (error) {
+        console.error('❌ Failed to parse card WebSocket message:', error);
+      }
+    });
+
+    this.subscriptions.set(subscriptionKey, subscription);
+    console.log('✅ Subscribed to card updates:', cardId);
+  }
+
+  /**
+   * Unsubscribe from card updates
+   */
+  unsubscribeFromCard(cardId: number): void {
+    const subscriptionKey = `card-${cardId}`;
+    const subscription = this.subscriptions.get(subscriptionKey);
+
+    if (subscription) {
+      subscription.unsubscribe();
+      this.subscriptions.delete(subscriptionKey);
+      this.cardCallbacks.delete(cardId);
+      console.log('🔕 Unsubscribed from card:', cardId);
+    }
+  }
+
+  /**
    * Send a message to the server
    */
   sendMessage(destination: string, body: any): void {
@@ -169,6 +222,7 @@ class WebSocketService {
       this.client.deactivate();
       this.client = null;
       this.connected = false;
+      this.cardCallbacks.clear();
       console.log('👋 WebSocket disconnected');
     }
   }

@@ -33,6 +33,9 @@ public class RedisConfig {
     @Value("${taskboard.cache.boards-ttl:30}")
     private long boardsTtlMinutes;
 
+    @Value("${taskboard.cache.comments-ttl:10}")
+    private long commentsTtlMinutes;
+
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
@@ -67,6 +70,12 @@ public class RedisConfig {
         // Boards cache - covers full board DTOs (board + lists + cards)
         cacheConfigurations.put("boards", defaultConfig
                 .entryTtl(Duration.ofMinutes(boardsTtlMinutes)));
+
+        // Comments cache — keyed by cardId, shorter TTL because comments are
+        // high-frequency real-time data. Evicted on every write to a card's thread.
+        // Completely decoupled from the boards cache — board reads are never affected.
+        cacheConfigurations.put("comments", defaultConfig
+                .entryTtl(Duration.ofMinutes(commentsTtlMinutes)));
 
 
         return RedisCacheManager.builder(connectionFactory)

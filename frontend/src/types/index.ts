@@ -99,3 +99,20 @@ export interface User {
   fullName?: string;
 }
 
+// Comment types
+export interface Comment {
+  id: number;
+  cardId: number;
+  authorId: number | null;
+  authorUsername: string | null;
+  authorFullName: string | null;
+  content: string;
+  edited: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCommentRequest {
+  content: string;
+}
+
