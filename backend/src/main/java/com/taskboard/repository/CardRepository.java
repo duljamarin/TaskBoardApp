@@ -19,11 +19,6 @@ import java.util.Optional;
 public interface CardRepository extends JpaRepository<Card, Long> {
 
     /**
-     * Find all cards in a list.
-     */
-    List<Card> findByListId(Long listId);
-
-    /**
      * Find all cards in a list ordered by position.
      */
     List<Card> findByListIdOrderByPositionAsc(Long listId);
@@ -60,30 +55,5 @@ public interface CardRepository extends JpaRepository<Card, Long> {
            "WHERE c.list.id = :listId AND c.position > :position")
     void decrementPositionsAfter(@Param("listId") Long listId, @Param("position") Integer position);
 
-    /**
-     * Find cards assigned to a user.
-     */
-    List<Card> findByAssignedToId(Long userId);
-
-    /**
-     * Find cards by priority.
-     */
-    List<Card> findByPriority(Priority priority);
-
-    /**
-     * Find cards with due date before a certain date.
-     */
-    List<Card> findByDueDateBefore(LocalDateTime date);
-
-    /**
-     * Find overdue cards.
-     */
-    @Query("SELECT c FROM Card c WHERE c.dueDate < :now AND c.dueDate IS NOT NULL")
-    List<Card> findOverdueCards(@Param("now") LocalDateTime now);
-
-    /**
-     * Count cards in a list.
-     */
-    long countByListId(Long listId);
 }
 

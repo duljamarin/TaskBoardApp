@@ -3,11 +3,11 @@ package com.taskboard.service;
 import com.taskboard.exception.ResourceNotFoundException;
 import com.taskboard.messaging.producer.EventPublisher;
 import com.taskboard.model.dto.CardDTO;
+import com.taskboard.model.dto.CardMapper;
 import com.taskboard.model.dto.CardMoveDTO;
 import com.taskboard.model.dto.CreateCardRequest;
 import com.taskboard.model.entity.*;
 import com.taskboard.model.event.CardCreatedEvent;
-import com.taskboard.model.event.CardMovedEvent;
 import com.taskboard.repository.CardRepository;
 import com.taskboard.repository.ListRepository;
 import com.taskboard.repository.UserRepository;
@@ -49,7 +49,7 @@ public class CardService {
     public List<CardDTO> getCardsByListId(Long listId) {
         log.debug("Fetching cards for list: {}", listId);
         return cardRepository.findByListIdOrderByPositionAsc(listId).stream()
-                .map(this::convertToDTO)
+                .map(CardMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
@@ -61,7 +61,7 @@ public class CardService {
         log.debug("Fetching card with id: {}", id);
         Card card = cardRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Card", "id", id));
-        return convertToDTO(card);
+        return CardMapper.toDTO(card);
     }
 
     /**
@@ -113,12 +113,12 @@ public class CardService {
         publishCardCreatedEvent(card);
 
         // Send WebSocket update
-        sendWebSocketUpdate(list.getBoard().getId(), "CARD_CREATED", convertToDTO(card));
+        sendWebSocketUpdate(list.getBoard().getId(), "CARD_CREATED", CardMapper.toDTO(card));
 
         // Log activity with creator
         logCardCreated(card, creator);
 
-        return convertToDTO(card);
+        return CardMapper.toDTO(card);
     }
 
     /**
@@ -150,7 +150,7 @@ public class CardService {
         log.info("Updated card: {}", card.getTitle());
 
         // Send WebSocket update
-        sendWebSocketUpdate(card.getBoard().getId(), "CARD_UPDATED", convertToDTO(card));
+        sendWebSocketUpdate(card.getBoard().getId(), "CARD_UPDATED", CardMapper.toDTO(card));
 
         // Log activity
         Map<String, Object> metadata = new HashMap<>();
@@ -158,7 +158,7 @@ public class CardService {
         activityLogService.logActivity(card.getBoard(), card.getAssignedTo(), ActivityType.CARD_UPDATED,
                 String.format("Card '%s' was updated", card.getTitle()), metadata);
 
-        return convertToDTO(card);
+        return CardMapper.toDTO(card);
     }
 
     /**
@@ -259,27 +259,4 @@ public class CardService {
                 String.format("Card '%s' was created in '%s' by %s",
                     card.getTitle(), card.getList().getName(), creator.getUsername()), metadata);
     }
-
-
-    /**
-     * Convert Card entity to DTO.
-     */
-    private CardDTO convertToDTO(Card card) {
-        return CardDTO.builder()
-                .id(card.getId())
-                .title(card.getTitle())
-                .description(card.getDescription())
-                .listId(card.getList().getId())
-                .listName(card.getList().getName())
-                .position(card.getPosition())
-                .assignedToId(card.getAssignedTo() != null ? card.getAssignedTo().getId() : null)
-                .assignedToUsername(card.getAssignedTo() != null ? card.getAssignedTo().getUsername() : null)
-                .assignedToFullName(card.getAssignedTo() != null ? card.getAssignedTo().getFullName() : null)
-                .priority(card.getPriority())
-                .dueDate(card.getDueDate())
-                .createdAt(card.getCreatedAt())
-                .updatedAt(card.getUpdatedAt())
-                .build();
-    }
 }
-

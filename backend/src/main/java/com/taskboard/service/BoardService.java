@@ -2,10 +2,7 @@ package com.taskboard.service;
 
 import com.taskboard.exception.ResourceNotFoundException;
 import com.taskboard.messaging.producer.EventPublisher;
-import com.taskboard.model.dto.BoardDTO;
-import com.taskboard.model.dto.CardDTO;
-import com.taskboard.model.dto.CreateBoardRequest;
-import com.taskboard.model.dto.ListDTO;
+import com.taskboard.model.dto.*;
 import com.taskboard.model.entity.*;
 import com.taskboard.model.event.BoardCreatedEvent;
 import com.taskboard.repository.BoardRepository;
@@ -239,7 +236,7 @@ public class BoardService {
      */
     private ListDTO convertListToDTO(BoardList list) {
         List<CardDTO> cardDTOs = list.getCards().stream()
-                .map(this::convertCardToDTO)
+                .map(CardMapper::toDTO)
                 .collect(Collectors.toList());
 
         return ListDTO.builder()
@@ -250,27 +247,6 @@ public class BoardService {
                 .cards(cardDTOs)
                 .createdAt(list.getCreatedAt())
                 .updatedAt(list.getUpdatedAt())
-                .build();
-    }
-
-    /**
-     * Convert Card entity to DTO.
-     */
-    private CardDTO convertCardToDTO(Card card) {
-        return CardDTO.builder()
-                .id(card.getId())
-                .title(card.getTitle())
-                .description(card.getDescription())
-                .listId(card.getList().getId())
-                .listName(card.getList().getName())
-                .position(card.getPosition())
-                .assignedToId(card.getAssignedTo() != null ? card.getAssignedTo().getId() : null)
-                .assignedToUsername(card.getAssignedTo() != null ? card.getAssignedTo().getUsername() : null)
-                .assignedToFullName(card.getAssignedTo() != null ? card.getAssignedTo().getFullName() : null)
-                .priority(card.getPriority())
-                .dueDate(card.getDueDate())
-                .createdAt(card.getCreatedAt())
-                .updatedAt(card.getUpdatedAt())
                 .build();
     }
 }

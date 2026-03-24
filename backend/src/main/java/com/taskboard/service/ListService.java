@@ -1,6 +1,7 @@
 package com.taskboard.service;
 
 import com.taskboard.exception.ResourceNotFoundException;
+import com.taskboard.model.dto.CardMapper;
 import com.taskboard.model.dto.CreateListRequest;
 import com.taskboard.model.dto.ListDTO;
 import com.taskboard.model.dto.CardDTO;
@@ -191,24 +192,18 @@ public class ListService {
     }
 
     /**
+     * Count all lists in the system (used by analytics).
+     */
+    @Transactional(readOnly = true)
+    public long countAllLists() {
+        return listRepository.count();
+    }
+
+    /**
      * Convert Card entity to DTO.
      */
     private CardDTO convertCardToDTO(Card card) {
-        return CardDTO.builder()
-                .id(card.getId())
-                .title(card.getTitle())
-                .description(card.getDescription())
-                .listId(card.getList().getId())
-                .listName(card.getList().getName())
-                .position(card.getPosition())
-                .assignedToId(card.getAssignedTo() != null ? card.getAssignedTo().getId() : null)
-                .assignedToUsername(card.getAssignedTo() != null ? card.getAssignedTo().getUsername() : null)
-                .assignedToFullName(card.getAssignedTo() != null ? card.getAssignedTo().getFullName() : null)
-                .priority(card.getPriority())
-                .dueDate(card.getDueDate())
-                .createdAt(card.getCreatedAt())
-                .updatedAt(card.getUpdatedAt())
-                .build();
+        return CardMapper.toDTO(card);
     }
 }
 

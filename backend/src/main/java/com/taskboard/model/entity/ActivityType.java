@@ -13,9 +13,6 @@ public enum ActivityType {
     CARD_CREATED,
     CARD_UPDATED,
     CARD_MOVED,
-    CARD_DELETED,
-    CARD_ASSIGNED,
-    CARD_UNASSIGNED,
-    COMMENT_ADDED
+    CARD_DELETED
 }
 

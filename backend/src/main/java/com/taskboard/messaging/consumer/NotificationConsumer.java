@@ -29,17 +29,8 @@ public class NotificationConsumer {
                 event.getBoardName());
         log.info("Moved by: {}", event.getMovedByUsername());
         log.info("Timestamp: {}", event.getTimestamp());
-
-        // In production, this would:
-        // - Send email notifications to board members
-        // - Send push notifications to mobile apps
-        // - Update notification center in the UI
-        simulateNotificationDelivery("card_moved", event.getCardTitle());
     }
 
-    /**
-     * Handle card created events for notifications.
-     */
     @RabbitListener(queues = "${taskboard.rabbitmq.queue.notifications:taskboard.notifications}")
     public void handleCardCreatedEvent(CardCreatedEvent event) {
         log.info("=== NOTIFICATION: Card Created ===");
@@ -50,13 +41,8 @@ public class NotificationConsumer {
         log.info("Priority: {}", event.getPriority());
         log.info("Created by: {}", event.getCreatedByUsername());
         log.info("Timestamp: {}", event.getTimestamp());
-
-        simulateNotificationDelivery("card_created", event.getCardTitle());
     }
 
-    /**
-     * Handle board created events for notifications.
-     */
     @RabbitListener(queues = "${taskboard.rabbitmq.queue.notifications:taskboard.notifications}")
     public void handleBoardCreatedEvent(BoardCreatedEvent event) {
         log.info("=== NOTIFICATION: Board Created ===");
@@ -64,22 +50,6 @@ public class NotificationConsumer {
         log.info("Description: {}", event.getDescription());
         log.info("Created by: {}", event.getCreatedByUsername());
         log.info("Timestamp: {}", event.getTimestamp());
-
-        simulateNotificationDelivery("board_created", event.getBoardName());
-    }
-
-    /**
-     * Simulate notification delivery (would be real implementation in production).
-     */
-    private void simulateNotificationDelivery(String type, String subject) {
-        log.debug("Simulating {} notification delivery for: {}", type, subject);
-        // Simulate async processing
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        log.debug("Notification delivered successfully for: {}", subject);
     }
 }
 

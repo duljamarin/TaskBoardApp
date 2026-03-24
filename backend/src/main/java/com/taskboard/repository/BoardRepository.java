@@ -18,11 +18,6 @@ import java.util.Optional;
 public interface BoardRepository extends JpaRepository<Board, Long> {
 
     /**
-     * Find all non-archived boards.
-     */
-    List<Board> findAllByArchivedFalse();
-
-    /**
      * Find all non-archived boards with lists eagerly loaded.
      */
     @Query("SELECT DISTINCT b FROM Board b " +
@@ -35,20 +30,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
      * Find a specific non-archived board by ID.
      */
     Optional<Board> findByIdAndArchivedFalse(Long id);
-
-    /**
-     * Find all boards owned by a specific user.
-     */
-    List<Board> findAllByOwnerIdAndArchivedFalse(Long ownerId);
-
-    /**
-     * Find board with all lists eagerly loaded.
-     */
-    @Query("SELECT b FROM Board b LEFT JOIN FETCH b.lists WHERE b.id = :id AND b.archived = false")
-    Optional<Board> findByIdWithLists(Long id);
-
-    /**
-     * Find board with all lists eagerly loaded (first step).
+     /** Find board with all lists eagerly loaded (first step).
      * We cannot fetch multiple bags in one query, so we split it into two queries.
      */
     @Query("SELECT DISTINCT b FROM Board b " +

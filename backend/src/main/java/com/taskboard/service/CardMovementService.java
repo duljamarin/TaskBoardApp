@@ -3,6 +3,7 @@ package com.taskboard.service;
 import com.taskboard.exception.ResourceNotFoundException;
 import com.taskboard.messaging.producer.EventPublisher;
 import com.taskboard.model.dto.CardDTO;
+import com.taskboard.model.dto.CardMapper;
 import com.taskboard.model.dto.CardMoveDTO;
 import com.taskboard.model.entity.*;
 import com.taskboard.model.event.CardMovedEvent;
@@ -112,7 +113,7 @@ public class CardMovementService {
         // Log activity
         logCardMoved(card, oldListName, mover);
 
-        return convertToDTO(card);
+        return CardMapper.toDTO(card);
     }
 
     /**
@@ -202,7 +203,7 @@ public class CardMovementService {
     private void sendWebSocketUpdate(Card card, Long fromListId, Long toListId) {
         try {
             Map<String, Object> moveData = new HashMap<>();
-            moveData.put("card", convertToDTO(card));
+            moveData.put("card", CardMapper.toDTO(card));
             moveData.put("fromListId", fromListId);
             moveData.put("toListId", toListId);
 
@@ -219,9 +220,6 @@ public class CardMovementService {
         }
     }
 
-    /**
-     * Log card moved activity.
-     */
     private void logCardMoved(Card card, String fromListName, User mover) {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("card_title", card.getTitle());
@@ -233,27 +231,6 @@ public class CardMovementService {
                 String.format("Card '%s' was moved from '%s' to '%s' by %s",
                         card.getTitle(), fromListName, card.getList().getName(), mover.getUsername()),
                 metadata);
-    }
-
-    /**
-     * Convert Card entity to DTO.
-     */
-    private CardDTO convertToDTO(Card card) {
-        return CardDTO.builder()
-                .id(card.getId())
-                .title(card.getTitle())
-                .description(card.getDescription())
-                .listId(card.getList().getId())
-                .listName(card.getList().getName())
-                .position(card.getPosition())
-                .assignedToId(card.getAssignedTo() != null ? card.getAssignedTo().getId() : null)
-                .assignedToUsername(card.getAssignedTo() != null ? card.getAssignedTo().getUsername() : null)
-                .assignedToFullName(card.getAssignedTo() != null ? card.getAssignedTo().getFullName() : null)
-                .priority(card.getPriority())
-                .dueDate(card.getDueDate())
-                .createdAt(card.getCreatedAt())
-                .updatedAt(card.getUpdatedAt())
-                .build();
     }
 }
 

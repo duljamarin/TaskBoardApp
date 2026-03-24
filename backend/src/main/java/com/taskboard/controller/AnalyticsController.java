@@ -1,13 +1,11 @@
 package com.taskboard.controller;
 
 import com.taskboard.messaging.consumer.AnalyticsConsumer;
-import com.taskboard.repository.ListRepository;
+import com.taskboard.service.ListService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class AnalyticsController {
 
     private final AnalyticsConsumer analyticsConsumer;
-    private final ListRepository listRepository;
+    private final ListService listService;
 
     /**
      * Get all analytics metrics.
@@ -36,8 +34,6 @@ public class AnalyticsController {
 
         ConcurrentHashMap<String, AtomicLong> rawMetrics = analyticsConsumer.getAllMetrics();
         Map<String, Long> metrics = new HashMap<>();
-
-        // Convert AtomicLong to Long for JSON serialization
         rawMetrics.forEach((key, value) -> metrics.put(key, value.get()));
 
         Map<String, Object> response = new HashMap<>();
@@ -56,15 +52,11 @@ public class AnalyticsController {
 
         Map<String, Object> overview = new HashMap<>();
 
-        // Total metrics from RabbitMQ events
         overview.put("totalCardsCreated", analyticsConsumer.getMetric("cards_created_total"));
         overview.put("totalCardsMoved", analyticsConsumer.getMetric("cards_moved_total"));
         overview.put("totalBoardsCreated", analyticsConsumer.getMetric("boards_created_total"));
+        overview.put("totalListsCreated", listService.countAllLists());
 
-        // Total lists from database (since we don't track list events)
-        overview.put("totalListsCreated", listRepository.count());
-
-        // Calculated metrics
         long totalCards = analyticsConsumer.getMetric("cards_created_total");
         long totalMoves = analyticsConsumer.getMetric("cards_moved_total");
         double avgMovesPerCard = totalCards > 0 ? (double) totalMoves / totalCards : 0;
@@ -87,7 +79,6 @@ public class AnalyticsController {
         cardMetrics.put("totalCreated", analyticsConsumer.getMetric("cards_created_total"));
         cardMetrics.put("totalMoved", analyticsConsumer.getMetric("cards_moved_total"));
 
-        // Priority distribution
         Map<String, Long> priorityDistribution = new HashMap<>();
         priorityDistribution.put("low", analyticsConsumer.getMetric("cards_created_priority_low"));
         priorityDistribution.put("medium", analyticsConsumer.getMetric("cards_created_priority_medium"));
@@ -107,7 +98,6 @@ public class AnalyticsController {
         log.debug("Fetching board analytics");
 
         Map<String, Object> boardMetrics = new HashMap<>();
-
         boardMetrics.put("totalCreated", analyticsConsumer.getMetric("boards_created_total"));
         boardMetrics.put("timestamp", System.currentTimeMillis());
 
@@ -115,9 +105,11 @@ public class AnalyticsController {
     }
 
     /**
-     * Reset all metrics (for testing purposes).
+     * Reset all in-memory metrics.
+     *
+     * Supports both DELETE and GET for backward compatibility.
      */
-    @GetMapping("/reset")
+    @RequestMapping(value = "/reset", method = {RequestMethod.DELETE, RequestMethod.GET})
     public ResponseEntity<Map<String, String>> resetMetrics() {
         log.warn("Resetting all analytics metrics");
 

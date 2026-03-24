@@ -84,32 +84,5 @@ public class WebSocketController {
 
         return response;
     }
-
-    /**
-     * Send a message to all subscribers of a specific board.
-     */
-    public void sendBoardUpdate(Long boardId, String eventType, Object data) {
-        Map<String, Object> message = new HashMap<>();
-        message.put("type", eventType);
-        message.put("data", data);
-        message.put("timestamp", LocalDateTime.now());
-
-        String destination = "/topic/board/" + boardId;
-        messagingTemplate.convertAndSend(destination, (Object) message);
-        log.debug("Sent WebSocket update to board {}: {}", boardId, eventType);
-    }
-
-    /**
-     * Send a message to a specific user.
-     */
-    public void sendUserNotification(String username, String eventType, Object data) {
-        Map<String, Object> message = new HashMap<>();
-        message.put("type", eventType);
-        message.put("data", data);
-        message.put("timestamp", LocalDateTime.now());
-
-        messagingTemplate.convertAndSendToUser(username, "/queue/notifications", message);
-        log.debug("Sent notification to user {}: {}", username, eventType);
-    }
 }
 
