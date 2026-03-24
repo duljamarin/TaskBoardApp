@@ -71,13 +71,13 @@ class BoardServiceTest {
     @Test
     void getAllBoards_ShouldReturnAllNonArchivedBoards() {
         List<Board> boards = Arrays.asList(testBoard);
-        when(boardRepository.findAllByArchivedFalse()).thenReturn(boards);
+        when(boardRepository.findAllByArchivedFalseWithLists()).thenReturn(boards);
 
         List<BoardDTO> result = boardService.getAllBoards();
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getName()).isEqualTo("Test Board");
-        verify(boardRepository).findAllByArchivedFalse();
+        verify(boardRepository).findAllByArchivedFalseWithLists();
     }
 
     @Test

@@ -21,7 +21,7 @@ class BoardRepositoryTest {
     private BoardRepository boardRepository;
 
     @Test
-    void findAllByArchivedFalse_ShouldReturnOnlyNonArchivedBoards() {
+    void findAllByArchivedFalseWithLists_ShouldReturnOnlyNonArchivedBoards() {
         // Given
         Board activeBoard = Board.builder()
                 .name("Active Board")
@@ -36,7 +36,7 @@ class BoardRepositoryTest {
         boardRepository.save(archivedBoard);
 
         // When
-        List<Board> result = boardRepository.findAllByArchivedFalse();
+        List<Board> result = boardRepository.findAllByArchivedFalseWithLists();
 
         // Then
         assertThat(result).hasSize(1);

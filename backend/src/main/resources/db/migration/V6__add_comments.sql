@@ -17,6 +17,15 @@ CREATE INDEX idx_comments_card_created ON comments(card_id, created_at ASC);
 -- Lookup all comments authored by a user
 CREATE INDEX idx_comments_author ON comments(author_id);
 
+-- Create function to auto-update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+    RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
 -- Auto-update updated_at on edit (reuses the function created in V1)
 CREATE TRIGGER update_comments_updated_at
     BEFORE UPDATE ON comments

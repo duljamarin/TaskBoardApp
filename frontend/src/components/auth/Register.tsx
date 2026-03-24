@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { authApi } from '../../api';
 import { Button } from '../common/Button';
@@ -14,6 +14,7 @@ export const Register: React.FC = () => {
     fullName: '',
   });
   const [error, setError] = useState('');
+  const [conflictError, setConflictError] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const login = useAuthStore((state) => state.login);
@@ -21,11 +22,14 @@ export const Register: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setConflictError(false);
+    setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setConflictError(false);
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
@@ -44,7 +48,14 @@ export const Register: React.FC = () => {
       login(response);
       navigate('/boards');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      const message: string = err.response?.data?.message ?? '';
+      if (message.toLowerCase().includes('username already exists') ||
+          message.toLowerCase().includes('email already exists')) {
+        setConflictError(true);
+        setError(message);
+      } else {
+        setError(message || 'Registration failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -62,6 +73,14 @@ export const Register: React.FC = () => {
           {error && (
             <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded">
               {error}
+              {conflictError && (
+                <span>
+                  {' '}Already have an account?{' '}
+                  <Link to="/login" className="font-semibold underline hover:text-red-900">
+                    Sign in
+                  </Link>
+                </span>
+              )}
             </div>
           )}
           <div className="space-y-4">
@@ -124,9 +143,9 @@ export const Register: React.FC = () => {
 
           <div className="text-center">
             <span className="text-gray-600">Already have an account? </span>
-            <a href="/login" className="text-primary-600 hover:text-primary-500 font-medium">
+            <Link to="/login" className="text-primary-600 hover:text-primary-500 font-medium">
               Sign in
-            </a>
+            </Link>
           </div>
         </form>
       </div>
