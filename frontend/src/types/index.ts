@@ -18,6 +18,23 @@ export interface AuthResponse {
   userId: number;
   username: string;
   email: string;
+  roles: string[];
+}
+
+// Admin types
+export interface UserDTO {
+  id: number;
+  username: string;
+  email: string;
+  fullName?: string;
+  active: boolean;
+  roles: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoleAssignmentRequest {
+  roleName: string;
 }
 
 // Board types
@@ -60,6 +77,21 @@ export interface CreateListRequest {
 // Card types
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
+// Label types
+export interface Label {
+  id: number;
+  name: string;
+  color: string;
+  boardId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLabelRequest {
+  name: string;
+  color?: string;
+}
+
 export interface Card {
   id: number;
   title: string;
@@ -72,6 +104,7 @@ export interface Card {
   assignedToFullName?: string;
   priority: Priority;
   dueDate?: string;
+  labels: Label[];
   createdAt: string;
   updatedAt: string;
 }

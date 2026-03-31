@@ -64,7 +64,7 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({ isOpen, onCl
     <Modal isOpen={isOpen} onClose={handleClose} title="Create New Board">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
             {error}
           </div>
         )}
@@ -79,7 +79,7 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({ isOpen, onCl
         />
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-surface-700 mb-1.5">
             Description (Optional)
           </label>
           <textarea
@@ -87,12 +87,12 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({ isOpen, onCl
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Enter board description"
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full px-4 py-2.5 bg-white border border-surface-200 rounded-xl shadow-sm text-sm text-surface-900 placeholder-surface-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 hover:border-surface-400"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-surface-700 mb-1.5">
             Board Color
           </label>
           <div className="grid grid-cols-8 gap-2">
@@ -101,8 +101,8 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({ isOpen, onCl
                 key={c}
                 type="button"
                 onClick={() => setColor(c)}
-                className={`w-10 h-10 rounded-md transition-transform ${
-                  color === c ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''
+                className={`w-10 h-10 rounded-xl transition-all duration-200 ${
+                  color === c ? 'ring-2 ring-offset-2 ring-primary-400 scale-110' : 'hover:scale-105'
                 }`}
                 style={{ backgroundColor: c }}
               />
@@ -110,11 +110,11 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({ isOpen, onCl
           </div>
         </div>
 
-        <div className="flex justify-end space-x-2 pt-4">
+        <div className="flex justify-end gap-2 pt-4 border-t border-surface-100">
           <Button type="button" variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" loading={loading}>
+          <Button type="submit" variant="gradient" loading={loading}>
             Create Board
           </Button>
         </div>
@@ -122,4 +122,3 @@ export const CreateBoardModal: React.FC<CreateBoardModalProps> = ({ isOpen, onCl
     </Modal>
   );
 };
-

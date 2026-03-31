@@ -2,6 +2,7 @@ package com.taskboard.repository;
 
 import com.taskboard.model.entity.Board;
 import com.taskboard.model.entity.BoardList;
+import com.taskboard.model.entity.Card;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -46,6 +47,15 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
            "WHERE l.board.id = :boardId " +
            "ORDER BY l.position ASC")
     List<BoardList> findListsWithCardsByBoardId(Long boardId);
+
+    /**
+     * Fetch cards with their labels for a specific board (third step).
+     * Prevents N+1 queries when accessing card.labels during DTO conversion.
+     */
+    @Query("SELECT DISTINCT c FROM Card c " +
+           "LEFT JOIN FETCH c.labels " +
+           "WHERE c.list.board.id = :boardId")
+    List<Card> findCardsWithLabelsByBoardId(Long boardId);
 
     /**
      * Lock a board row for update to serialize concurrent list position changes.

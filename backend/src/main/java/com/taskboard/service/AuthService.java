@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -62,6 +63,10 @@ public class AuthService {
         User user = userRepository.findByUsername(loginRequest.getUsername())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+        List<String> roles = user.getRoles().stream()
+                .map(role -> role.getName().name())
+                .toList();
+
         log.info("User authenticated successfully: {}", loginRequest.getUsername());
 
         return new AuthResponse(
@@ -69,7 +74,8 @@ public class AuthService {
                 refreshToken,
                 user.getId(),
                 user.getUsername(),
-                user.getEmail()
+                user.getEmail(),
+                roles
         );
     }
 
@@ -123,12 +129,17 @@ public class AuthService {
         String accessToken = tokenProvider.generateToken(authentication);
         String refreshToken = tokenProvider.generateRefreshToken(authentication);
 
+        List<String> roles = user.getRoles().stream()
+                .map(role -> role.getName().name())
+                .toList();
+
         return new AuthResponse(
                 accessToken,
                 refreshToken,
                 user.getId(),
                 user.getUsername(),
-                user.getEmail()
+                user.getEmail(),
+                roles
         );
     }
 

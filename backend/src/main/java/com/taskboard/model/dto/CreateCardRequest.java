@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -35,8 +36,27 @@ public class CreateCardRequest {
     @Builder.Default
     private Priority priority = Priority.MEDIUM;
 
-    private LocalDateTime dueDate;
+    /**
+     * Due date for the card.
+     * Stored as a date-only string from the frontend ("yyyy-MM-dd").
+     * We accept it as a String and convert to LocalDateTime internally.
+     */
+    private String dueDate;
 
     private Long assignedToId;
+
+    /**
+     * Converts the dueDate string to LocalDateTime.
+     * Accepts "yyyy-MM-dd" or "yyyy-MM-ddTHH:mm:ss" formats.
+     */
+    public LocalDateTime getDueDateAsLocalDateTime() {
+        if (dueDate == null || dueDate.isBlank()) {
+            return null;
+        }
+        if (dueDate.contains("T")) {
+            return LocalDateTime.parse(dueDate);
+        }
+        return LocalDate.parse(dueDate).atStartOfDay();
+    }
 }
 

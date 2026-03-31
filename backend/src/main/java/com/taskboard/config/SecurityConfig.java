@@ -55,7 +55,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/cards/**").authenticated()
                 .requestMatchers("/api/v1/lists/**").authenticated()
                 .requestMatchers("/api/v1/comments/**").authenticated()
+                .requestMatchers("/api/v1/labels/**").authenticated()
                 // Admin endpoints
+                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/actuator/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
@@ -87,7 +89,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // Use specific origins instead of wildcard when allowing credentials
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:5173"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:3001", "http://localhost:5173"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true); // Enable credentials (cookies, authorization headers)

@@ -90,12 +90,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // Register STOMP endpoint with SockJS fallback
         // Use specific origins instead of wildcard for credential support
         registry.addEndpoint("/ws")
-                .setAllowedOrigins("http://localhost:3000", "http://localhost:5173")
+                .setAllowedOrigins("http://localhost:3000","http://localhost:3001", "http://localhost:5173")
                 .withSockJS();
 
         // Also register without SockJS for native WebSocket clients
         registry.addEndpoint("/ws")
-                .setAllowedOrigins("http://localhost:3000", "http://localhost:5173");
+                .setAllowedOrigins("http://localhost:3000","http://localhost:3001", "http://localhost:5173");
     }
 }
 

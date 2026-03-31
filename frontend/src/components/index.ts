@@ -10,6 +10,9 @@ export * from './lists';
 // Card components
 export * from './cards';
 
+// Label components
+export * from './labels';
+
 // Layout components
 export * from './layout';
 

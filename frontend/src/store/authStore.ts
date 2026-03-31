@@ -9,7 +9,10 @@ interface AuthState {
   userId: number | null;
   username: string | null;
   email: string | null;
+  roles: string[];
   isAuthenticated: boolean;
+  isAdmin: boolean;
+  isModerator: boolean;
   login: (authResponse: AuthResponse) => void;
   logout: () => void;
 }
@@ -22,18 +25,25 @@ export const useAuthStore = create<AuthState>()(
       userId: null,
       username: null,
       email: null,
+      roles: [],
       isAuthenticated: false,
+      isAdmin: false,
+      isModerator: false,
 
       login: (authResponse: AuthResponse) => {
         localStorage.setItem('accessToken', authResponse.accessToken);
         localStorage.setItem('refreshToken', authResponse.refreshToken);
+        const roles = authResponse.roles || [];
         set({
           accessToken: authResponse.accessToken,
           refreshToken: authResponse.refreshToken,
           userId: authResponse.userId,
           username: authResponse.username,
           email: authResponse.email,
+          roles,
           isAuthenticated: true,
+          isAdmin: roles.includes('ROLE_ADMIN'),
+          isModerator: roles.includes('ROLE_MODERATOR'),
         });
 
         // Connect to WebSocket
@@ -54,7 +64,10 @@ export const useAuthStore = create<AuthState>()(
           userId: null,
           username: null,
           email: null,
+          roles: [],
           isAuthenticated: false,
+          isAdmin: false,
+          isModerator: false,
         });
       },
     }),

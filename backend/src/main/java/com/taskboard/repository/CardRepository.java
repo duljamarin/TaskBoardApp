@@ -1,7 +1,6 @@
 package com.taskboard.repository;
 
 import com.taskboard.model.entity.Card;
-import com.taskboard.model.entity.Priority;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -24,12 +23,13 @@ public interface CardRepository extends JpaRepository<Card, Long> {
     List<Card> findByListIdOrderByPositionAsc(Long listId);
 
     /**
-     * Find card with list and board info.
+     * Find card with list, board, assignee and labels info.
      */
     @Query("SELECT c FROM Card c " +
            "LEFT JOIN FETCH c.list l " +
            "LEFT JOIN FETCH l.board " +
            "LEFT JOIN FETCH c.assignedTo " +
+           "LEFT JOIN FETCH c.labels " +
            "WHERE c.id = :id")
     Optional<Card> findByIdWithDetails(@Param("id") Long id);
 

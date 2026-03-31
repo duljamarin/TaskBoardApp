@@ -2,6 +2,9 @@ package com.taskboard.model.dto;
 
 import com.taskboard.model.entity.Card;
 
+import java.util.ArrayList;
+import java.util.stream.Collectors;
+
 /**
  * Utility class for mapping Card entities to CardDTO.
  * Centralises the conversion logic that was previously duplicated
@@ -30,6 +33,18 @@ public final class CardMapper {
                 .assignedToFullName(card.getAssignedTo() != null ? card.getAssignedTo().getFullName() : null)
                 .priority(card.getPriority())
                 .dueDate(card.getDueDate())
+                .labels(card.getLabels() != null
+                        ? card.getLabels().stream()
+                            .map(label -> LabelDTO.builder()
+                                    .id(label.getId())
+                                    .name(label.getName())
+                                    .color(label.getColor())
+                                    .boardId(label.getBoard().getId())
+                                    .createdAt(label.getCreatedAt())
+                                    .updatedAt(label.getUpdatedAt())
+                                    .build())
+                            .collect(Collectors.toList())
+                        : new ArrayList<>())
                 .createdAt(card.getCreatedAt())
                 .updatedAt(card.getUpdatedAt())
                 .build();

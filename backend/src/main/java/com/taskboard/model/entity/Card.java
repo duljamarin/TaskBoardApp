@@ -7,6 +7,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Entity representing a card (task) within a list.
@@ -50,6 +52,15 @@ public class Card implements Serializable {
     @Column(length = 20)
     @Builder.Default
     private Priority priority = Priority.MEDIUM;
+
+    @ManyToMany
+    @JoinTable(
+            name = "card_labels",
+            joinColumns = @JoinColumn(name = "card_id"),
+            inverseJoinColumns = @JoinColumn(name = "label_id")
+    )
+    @Builder.Default
+    private Set<Label> labels = new HashSet<>();
 
     @Column(name = "due_date")
     private LocalDateTime dueDate;

@@ -3,6 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card } from '../../types';
 import { CardDetailsModal } from './CardDetailsModal';
+import { LabelBadge } from '../labels/LabelBadge';
 
 interface CardItemProps {
   card: Card;
@@ -51,6 +52,15 @@ export const CardItem: React.FC<CardItemProps> = ({ card }) => {
         onClick={() => setIsModalOpen(true)}
         className="bg-white rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
       >
+        {/* Label badges */}
+        {card.labels && card.labels.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {card.labels.map((label) => (
+              <LabelBadge key={label.id} label={label} size="sm" />
+            ))}
+          </div>
+        )}
+
         <h4 className="text-sm font-medium text-gray-900 mb-2">{card.title}</h4>
 
         {card.description && (

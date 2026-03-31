@@ -1,8 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Login, Register, AuthGuard } from './components/auth';
+import { Login, Register, AuthGuard, AdminGuard } from './components/auth';
 import { BoardList, BoardView } from './components/boards';
 import { AnalyticsDashboard } from './components/analytics';
+import { AdminPanel } from './components/admin';
 import { Layout } from './components/layout';
 import { Dashboard } from './components/Dashboard';
 
@@ -41,6 +42,18 @@ const App: React.FC = () => {
                 <AnalyticsDashboard />
               </Layout>
             </AuthGuard>
+          }
+        />
+
+        {/* Admin routes */}
+        <Route
+          path="/admin"
+          element={
+            <AdminGuard>
+              <Layout>
+                <AdminPanel />
+              </Layout>
+            </AdminGuard>
           }
         />
 

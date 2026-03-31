@@ -78,6 +78,8 @@ public class BoardService {
         // Second query: fetch all cards for the lists (this initializes the cards collection)
         if (!board.getLists().isEmpty()) {
             boardRepository.findListsWithCardsByBoardId(id);
+            // Third query: fetch labels for all cards in this board
+            boardRepository.findCardsWithLabelsByBoardId(id);
         }
 
         return convertToDTOWithDetails(board);

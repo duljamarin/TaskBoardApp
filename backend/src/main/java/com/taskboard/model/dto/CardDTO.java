@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Data Transfer Object for Card entity.
@@ -29,6 +31,10 @@ public class CardDTO implements Serializable {
     private String assignedToFullName;
     private Priority priority;
     private LocalDateTime dueDate;
+
+    @Builder.Default
+    private List<LabelDTO> labels = new ArrayList<>();
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

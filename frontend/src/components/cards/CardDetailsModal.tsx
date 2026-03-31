@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Card, Priority } from '../../types';
 import { useBoardStore } from '../../store/boardStore';
 import { Modal } from '../common/Modal';
 import { Input } from '../common/Input';
 import { Button } from '../common/Button';
 import { CommentSection } from './CommentSection';
+import { LabelBadge } from '../labels/LabelBadge';
+import { LabelPicker } from '../labels/LabelPicker';
+import { labelApi } from '../../api';
 
 interface CardDetailsModalProps {
   isOpen: boolean;
@@ -21,8 +24,23 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ isOpen, onCl
     card.dueDate ? new Date(card.dueDate).toISOString().split('T')[0] : ''
   );
   const [error, setError] = useState('');
+  const [cardLabels, setCardLabels] = useState(card.labels || []);
 
-  const { updateCard, deleteCard, loading } = useBoardStore();
+  const { updateCard, deleteCard, loading, fetchBoard, currentBoard } = useBoardStore();
+
+  // Derive boardId from the current card's list → board
+  const boardId = currentBoard?.id;
+
+  const refreshLabels = useCallback(async () => {
+    try {
+      const labels = await labelApi.getByCardId(card.id);
+      setCardLabels(labels);
+      // Also re-fetch the board to update labels in the card items
+      if (boardId) fetchBoard(boardId);
+    } catch {
+      // silently ignore
+    }
+  }, [card.id, boardId, fetchBoard]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,6 +194,30 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ isOpen, onCl
                   {card.assignedToFullName || `@${card.assignedToUsername}`}
                 </span>
               </div>
+            )}
+          </div>
+
+          {/* Labels section */}
+          <div className="border-t pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-500">Labels</span>
+              {boardId && (
+                <LabelPicker
+                  cardId={card.id}
+                  boardId={boardId}
+                  assignedLabels={cardLabels}
+                  onChanged={refreshLabels}
+                />
+              )}
+            </div>
+            {cardLabels.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {cardLabels.map((label) => (
+                  <LabelBadge key={label.id} label={label} size="md" />
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">No labels assigned</p>
             )}
           </div>
 

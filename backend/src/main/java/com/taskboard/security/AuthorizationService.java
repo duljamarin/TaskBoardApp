@@ -5,9 +5,11 @@ import com.taskboard.model.entity.Board;
 import com.taskboard.model.entity.BoardList;
 import com.taskboard.model.entity.Card;
 import com.taskboard.model.entity.Comment;
+import com.taskboard.model.entity.Label;
 import com.taskboard.repository.BoardRepository;
 import com.taskboard.repository.CardRepository;
 import com.taskboard.repository.CommentRepository;
+import com.taskboard.repository.LabelRepository;
 import com.taskboard.repository.ListRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +33,7 @@ public class AuthorizationService {
     private final ListRepository    listRepository;
     private final CardRepository    cardRepository;
     private final CommentRepository commentRepository;
+    private final LabelRepository   labelRepository;
 
     /**
      * Check if current user is admin.
@@ -41,6 +44,24 @@ public class AuthorizationService {
             return false;
         }
         return auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
+    /**
+     * Check if current user is moderator.
+     */
+    public boolean isModerator() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            return false;
+        }
+        return auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_MODERATOR"));
+    }
+
+    /**
+     * Check if current user is admin or moderator.
+     */
+    public boolean isAdminOrModerator() {
+        return isAdmin() || isModerator();
     }
 
     /**
@@ -173,6 +194,16 @@ public class AuthorizationService {
         }
 
         throw new AccessDeniedException("Invalid authentication principal");
+    }
+
+    /**
+     * Check if user can modify a label (delegates to board-level permission).
+     */
+    @Transactional(readOnly = true)
+    public boolean canModifyLabel(Long labelId) {
+        Label label = labelRepository.findByIdWithBoard(labelId)
+                .orElseThrow(() -> new ResourceNotFoundException("Label", "id", labelId));
+        return canModifyBoard(label.getBoard().getId());
     }
 
     /**

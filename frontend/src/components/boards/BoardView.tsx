@@ -18,6 +18,8 @@ import { ListView } from '../lists/ListView';
 import { CreateListForm } from '../lists/CreateListForm';
 import { Card } from '../../types';
 import { websocketService, WebSocketMessage } from '../../services/websocket';
+import { LabelManager } from '../labels/LabelManager';
+import { LabelBadge } from '../labels/LabelBadge';
 
 export const BoardView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +30,8 @@ export const BoardView: React.FC = () => {
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [realtimeUpdates, setRealtimeUpdates] = useState<string[]>([]);
+  const [showLabelManager, setShowLabelManager] = useState(false);
+  const [filterLabelIds, setFilterLabelIds] = useState<Set<number>>(new Set());
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -324,6 +328,9 @@ export const BoardView: React.FC = () => {
               <Button variant="danger" onClick={handleDeleteBoard}>
                 Delete Board
               </Button>
+              <Button variant="secondary" onClick={() => setShowLabelManager(true)}>
+                🏷 Labels
+              </Button>
             </div>
           </div>
         </div>
@@ -350,13 +357,65 @@ export const BoardView: React.FC = () => {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
+        {/* Label filter bar */}
+        {currentBoard.lists.some((l) => l.cards.some((c) => c.labels && c.labels.length > 0)) && (
+          <div className="px-4 pt-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-gray-600">Filter by label:</span>
+              {/* Collect all unique labels from the board */}
+              {Array.from(
+                new Map(
+                  currentBoard.lists
+                    .flatMap((l) => l.cards)
+                    .flatMap((c) => c.labels || [])
+                    .map((label) => [label.id, label])
+                ).values()
+              )
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((label) => (
+                  <button
+                    key={label.id}
+                    onClick={() =>
+                      setFilterLabelIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(label.id)) next.delete(label.id);
+                        else next.add(label.id);
+                        return next;
+                      })
+                    }
+                    className={`transition-opacity ${
+                      filterLabelIds.size > 0 && !filterLabelIds.has(label.id) ? 'opacity-40' : ''
+                    }`}
+                  >
+                    <LabelBadge label={label} size="sm" />
+                  </button>
+                ))}
+              {filterLabelIds.size > 0 && (
+                <button
+                  onClick={() => setFilterLabelIds(new Set())}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline ml-1"
+                >
+                  Clear filter
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="px-4 py-6">
           <div className="flex space-x-4 overflow-x-auto pb-4">
             {currentBoard.lists
               .sort((a, b) => a.position - b.position)
-              .map((list) => (
-                <ListView key={list.id} list={list} />
-              ))}
+              .map((list) => {
+                // Apply label filter: if any filter is active, only show cards matching the filter
+                if (filterLabelIds.size > 0) {
+                  const filteredCards = list.cards.filter((c) =>
+                    c.labels && c.labels.some((l) => filterLabelIds.has(l.id))
+                  );
+                  return <ListView key={list.id} list={{ ...list, cards: filteredCards }} />;
+                }
+                return <ListView key={list.id} list={list} />;
+              })}
 
             {showCreateList ? (
               <CreateListForm
@@ -386,6 +445,17 @@ export const BoardView: React.FC = () => {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {/* Label Manager Modal */}
+      <LabelManager
+        isOpen={showLabelManager}
+        onClose={() => {
+          setShowLabelManager(false);
+          // Refresh board to pick up any label changes
+          if (id) fetchBoard(parseInt(id, 10));
+        }}
+        boardId={currentBoard.id}
+      />
     </div>
   );
 };

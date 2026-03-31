@@ -103,7 +103,7 @@ public class CardService {
                 .position(position)
                 .assignedTo(assignedTo)
                 .priority(request.getPriority() != null ? request.getPriority() : Priority.MEDIUM)
-                .dueDate(request.getDueDate())
+                .dueDate(request.getDueDateAsLocalDateTime())
                 .build();
 
         card = cardRepository.save(card);
@@ -139,7 +139,7 @@ public class CardService {
             card.setPriority(request.getPriority());
         }
 
-        card.setDueDate(request.getDueDate());
+        card.setDueDate(request.getDueDateAsLocalDateTime());
 
         if (request.getAssignedToId() != null) {
             User assignedTo = userRepository.findById(request.getAssignedToId()).orElse(null);

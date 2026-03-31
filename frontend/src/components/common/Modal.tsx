@@ -5,7 +5,7 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -41,6 +41,7 @@ export const Modal: React.FC<ModalProps> = ({
     sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-lg',
+    xl: 'max-w-2xl',
   };
 
   return (
@@ -48,21 +49,21 @@ export const Modal: React.FC<ModalProps> = ({
       <div className="flex min-h-screen items-center justify-center p-4">
         {/* Backdrop */}
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+          className="fixed inset-0 bg-surface-900/60 backdrop-blur-sm transition-opacity animate-fade-in"
           onClick={onClose}
         />
 
         {/* Modal */}
         <div
           ref={modalRef}
-          className={`relative w-full ${sizeStyles[size]} bg-white rounded-xl shadow-xl transform transition-all`}
+          className={`relative w-full ${sizeStyles[size]} bg-white rounded-2xl shadow-xl transform transition-all animate-scale-in`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-surface-100">
+            <h2 className="text-lg font-semibold text-surface-900">{title}</h2>
             <button
               onClick={onClose}
-              className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+              className="p-1.5 text-surface-400 hover:text-surface-600 rounded-lg hover:bg-surface-100 transition-colors"
             >
               <svg
                 className="w-5 h-5"
@@ -81,7 +82,7 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
 
           {/* Content */}
-          <div className="px-6 py-4">{children}</div>
+          <div className="px-6 py-5">{children}</div>
         </div>
       </div>
     </div>
