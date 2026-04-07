@@ -23,6 +23,24 @@ api.interceptors.request.use(
   }
 );
 
+// Token refresh state — ensures only one refresh happens at a time
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (error: unknown) => void;
+}> = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (token) {
+      prom.resolve(token);
+    } else {
+      prom.reject(error);
+    }
+  });
+  failedQueue = [];
+};
+
 // Response interceptor to handle token refresh
 api.interceptors.response.use(
   (response) => response,
@@ -30,7 +48,23 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Another refresh is already in progress — queue this request
+        return new Promise((resolve, reject) => {
+          failedQueue.push({
+            resolve: (token: string) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              resolve(api(originalRequest));
+            },
+            reject: (err: unknown) => {
+              reject(err);
+            },
+          });
+        });
+      }
+
       originalRequest._retry = true;
+      isRefreshing = true;
 
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
@@ -43,14 +77,21 @@ api.interceptors.response.use(
           localStorage.setItem('accessToken', accessToken);
 
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          processQueue(null, accessToken);
           return api(originalRequest);
         } catch (refreshError) {
-          // Refresh failed, logout user
+          processQueue(refreshError, null);
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
           window.location.href = '/login';
           return Promise.reject(refreshError);
+        } finally {
+          isRefreshing = false;
         }
+      } else {
+        // No refresh token available — redirect to login
+        localStorage.removeItem('accessToken');
+        window.location.href = '/login';
       }
     }
 
@@ -59,4 +100,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-
