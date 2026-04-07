@@ -1,5 +1,6 @@
 package com.taskboard.config;
 
+import com.taskboard.security.CustomUserDetailsService;
 import com.taskboard.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +41,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private String allowedOrigins;
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final CustomUserDetailsService userDetailsService;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -70,14 +72,21 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
                             if (jwtTokenProvider.validateToken(token)) {
                                 Long userId = jwtTokenProvider.getUserIdFromToken(token);
+                                var userDetails = userDetailsService.loadUserById(userId);
                                 UsernamePasswordAuthenticationToken authentication =
-                                    new UsernamePasswordAuthenticationToken(userId, null, null);
+                                    new UsernamePasswordAuthenticationToken(
+                                            userDetails, null, userDetails.getAuthorities());
                                 accessor.setUser(authentication);
-                                SecurityContextHolder.getContext().setAuthentication(authentication);
                                 log.debug("WebSocket connection authenticated for user: {}", userId);
                             }
                         }
                     }
+                }
+
+                // Propagate authentication to SecurityContextHolder for message-handling threads
+                if (accessor != null && accessor.getUser() != null) {
+                    SecurityContextHolder.getContext().setAuthentication(
+                            (UsernamePasswordAuthenticationToken) accessor.getUser());
                 }
 
                 return message;

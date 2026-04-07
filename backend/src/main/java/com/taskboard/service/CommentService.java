@@ -155,7 +155,8 @@ public class CommentService {
     private void sendWebSocketUpdate(Long boardId, Long cardId, String eventType, Object data) {
         try {
             Map<String, Object> message = new HashMap<>();
-            message.put("type",      eventType);
+            message.put("type",
+                    eventType);
             message.put("data",      data);
             message.put("cardId",    cardId);
             message.put("timestamp", LocalDateTime.now());

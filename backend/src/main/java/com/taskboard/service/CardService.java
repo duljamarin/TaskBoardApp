@@ -110,7 +110,7 @@ public class CardService {
         log.info("Created card with id: {} by user: {}", card.getId(), creator.getUsername());
 
         // Publish event to RabbitMQ
-        publishCardCreatedEvent(card);
+        publishCardCreatedEvent(card, userId, creator.getUsername());
 
         // Send WebSocket update
         sendWebSocketUpdate(list.getBoard().getId(), "CARD_CREATED", CardMapper.toDTO(card));
@@ -209,7 +209,7 @@ public class CardService {
     /**
      * Publish card created event.
      */
-    private void publishCardCreatedEvent(Card card) {
+    private void publishCardCreatedEvent(Card card, Long creatorUserId, String creatorUsername) {
         CardCreatedEvent event = CardCreatedEvent.builder()
                 .cardId(card.getId())
                 .cardTitle(card.getTitle())
@@ -218,8 +218,10 @@ public class CardService {
                 .listId(card.getList().getId())
                 .listName(card.getList().getName())
                 .priority(card.getPriority())
-                .createdByUserId(card.getAssignedTo() != null ? card.getAssignedTo().getId() : null)
-                .createdByUsername(card.getAssignedTo() != null ? card.getAssignedTo().getUsername() : "system")
+                .dueDate(card.getDueDate())
+                .assignedToUserId(card.getAssignedTo() != null ? card.getAssignedTo().getId() : null)
+                .createdByUserId(creatorUserId)
+                .createdByUsername(creatorUsername)
                 .timestamp(LocalDateTime.now())
                 .build();
 

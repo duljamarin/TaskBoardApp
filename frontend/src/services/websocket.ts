@@ -209,6 +209,45 @@ class WebSocketService {
   }
 
   /**
+   * Subscribe to user-specific notifications
+   */
+
+  subscribeToNotifications(userId: number, callback: (notification: any) => void): void {
+    if (!this.client || !this.connected) {
+      console.warn('WebSocket not connected. Cannot subscribe to notifications.');
+      return;
+    }
+
+    const destination = `/topic/notifications/${userId}`;
+    const subscriptionKey = 'user-notifications';
+
+    if (this.subscriptions.has(subscriptionKey)) return;
+
+    const subscription = this.client.subscribe(destination, (message: IMessage) => {
+      try {
+        const data = JSON.parse(message.body);
+        callback(data);
+      } catch (error) {
+        console.error('Failed to parse notification message:', error);
+      }
+    });
+
+    this.subscriptions.set(subscriptionKey, subscription);
+  }
+
+  /**
+   * Unsubscribe from notifications
+   */
+  unsubscribeFromNotifications(): void {
+    const subscriptionKey = 'user-notifications';
+    const subscription = this.subscriptions.get(subscriptionKey);
+    if (subscription) {
+      subscription.unsubscribe();
+      this.subscriptions.delete(subscriptionKey);
+    }
+  }
+
+  /**
    * Disconnect from WebSocket
    */
   disconnect(): void {

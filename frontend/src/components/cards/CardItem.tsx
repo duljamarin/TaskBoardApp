@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Card } from '../../types';
-import { CardDetailsModal } from './CardDetailsModal';
-import { LabelBadge } from '../labels/LabelBadge';
+import { Card } from '@/types';
+import { CardDetailsModal } from '@/components';
+import { LabelBadge } from '@/components';
 
 interface CardItemProps {
   card: Card;
@@ -40,7 +40,16 @@ export const CardItem: React.FC<CardItemProps> = ({ card }) => {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
+  const getDueDateStatus = () => {
+    if (!card.dueDate) return null;
+    const due = new Date(card.dueDate);
+    const now = new Date();
+    if (due < now) return 'overdue';
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    if (due <= threeDaysFromNow) return 'soon';
+    return 'normal';
+  };
+  const dueDateStatus = getDueDateStatus();
 
   return (
     <>
@@ -74,9 +83,11 @@ export const CardItem: React.FC<CardItemProps> = ({ card }) => {
 
           {card.dueDate && (
             <span className={`text-xs px-2 py-1 rounded ${
-              isOverdue ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+              dueDateStatus === 'overdue' ? 'bg-red-100 text-red-800' :
+              dueDateStatus === 'soon' ? 'bg-amber-100 text-amber-800' :
+              'bg-gray-100 text-gray-800'
             }`}>
-              {new Date(card.dueDate).toLocaleDateString()}
+              {new Date(card.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </span>
           )}
 

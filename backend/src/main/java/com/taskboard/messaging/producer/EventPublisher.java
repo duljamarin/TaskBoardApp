@@ -39,69 +39,47 @@ public class EventPublisher {
     @Value("${taskboard.rabbitmq.routing-key.comment-added:comment.added}")
     private String commentAddedRoutingKey;
 
-    /**
-     * Publish a card moved event.
-     */
     public void publishCardMoved(CardMovedEvent event) {
         try {
-            log.debug("Publishing CardMovedEvent: cardId={}, from={} to={}",
-                    event.getCardId(), event.getFromListName(), event.getToListName());
-
+            log.warn(">>> RABBITMQ PUBLISH: CardMovedEvent to exchange='{}' routingKey='{}' cardId={}",
+                    cardEventsExchange, cardMovedRoutingKey, event.getCardId());
             rabbitTemplate.convertAndSend(cardEventsExchange, cardMovedRoutingKey, event);
-
-            log.info("Successfully published CardMovedEvent for card: {}", event.getCardTitle());
+            log.warn(">>> RABBITMQ PUBLISH SUCCESS: CardMovedEvent for card '{}'", event.getCardTitle());
         } catch (Exception e) {
-            log.error("Failed to publish CardMovedEvent: {}", e.getMessage(), e);
+            log.error(">>> RABBITMQ PUBLISH FAILED: CardMovedEvent: {}", e.getMessage(), e);
         }
     }
 
-    /**
-     * Publish a card created event.
-     */
     public void publishCardCreated(CardCreatedEvent event) {
         try {
-            log.debug("Publishing CardCreatedEvent: cardId={}, title={}",
-                    event.getCardId(), event.getCardTitle());
-
+            log.warn(">>> RABBITMQ PUBLISH: CardCreatedEvent to exchange='{}' routingKey='{}' cardId={} assignedTo={}",
+                    cardEventsExchange, cardCreatedRoutingKey, event.getCardId(), event.getAssignedToUserId());
             rabbitTemplate.convertAndSend(cardEventsExchange, cardCreatedRoutingKey, event);
-
-            log.info("Successfully published CardCreatedEvent for card: {}", event.getCardTitle());
+            log.warn(">>> RABBITMQ PUBLISH SUCCESS: CardCreatedEvent for card '{}'", event.getCardTitle());
         } catch (Exception e) {
-            log.error("Failed to publish CardCreatedEvent: {}", e.getMessage(), e);
+            log.error(">>> RABBITMQ PUBLISH FAILED: CardCreatedEvent: {}", e.getMessage(), e);
         }
     }
 
-    /**
-     * Publish a board created event.
-     */
     public void publishBoardCreated(BoardCreatedEvent event) {
         try {
-            log.debug("Publishing BoardCreatedEvent: boardId={}, name={}",
-                    event.getBoardId(), event.getBoardName());
-
+            log.warn(">>> RABBITMQ PUBLISH: BoardCreatedEvent to exchange='{}' routingKey='{}'",
+                    boardEventsExchange, boardCreatedRoutingKey);
             rabbitTemplate.convertAndSend(boardEventsExchange, boardCreatedRoutingKey, event);
-
-            log.info("Successfully published BoardCreatedEvent for board: {}", event.getBoardName());
+            log.warn(">>> RABBITMQ PUBLISH SUCCESS: BoardCreatedEvent for board '{}'", event.getBoardName());
         } catch (Exception e) {
-            log.error("Failed to publish BoardCreatedEvent: {}", e.getMessage(), e);
+            log.error(">>> RABBITMQ PUBLISH FAILED: BoardCreatedEvent: {}", e.getMessage(), e);
         }
     }
 
-    /**
-     * Publish a comment added event.
-     * Routes through the card-events exchange so no new exchange is needed.
-     */
     public void publishCommentAdded(CommentAddedEvent event) {
         try {
-            log.debug("Publishing CommentAddedEvent: commentId={}, cardId={}",
-                    event.getCommentId(), event.getCardId());
-
+            log.warn(">>> RABBITMQ PUBLISH: CommentAddedEvent to exchange='{}' routingKey='{}'",
+                    cardEventsExchange, commentAddedRoutingKey);
             rabbitTemplate.convertAndSend(cardEventsExchange, commentAddedRoutingKey, event);
-
-            log.info("Successfully published CommentAddedEvent on card: {}", event.getCardTitle());
+            log.warn(">>> RABBITMQ PUBLISH SUCCESS: CommentAddedEvent on card '{}'", event.getCardTitle());
         } catch (Exception e) {
-            log.error("Failed to publish CommentAddedEvent: {}", e.getMessage(), e);
+            log.error(">>> RABBITMQ PUBLISH FAILED: CommentAddedEvent: {}", e.getMessage(), e);
         }
     }
 }
-

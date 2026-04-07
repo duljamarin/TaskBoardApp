@@ -22,7 +22,7 @@ public class UserPrincipal implements UserDetails {
     private String username;
     private String email;
     private String password;
-    private boolean active;
+    private Boolean active;
     private Collection<? extends GrantedAuthority> authorities;
 
     /**
@@ -78,7 +78,7 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return active;
+        return active != null && active;
     }
 }
 

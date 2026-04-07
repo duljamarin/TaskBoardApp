@@ -1,6 +1,7 @@
 package com.taskboard.config;
 
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.support.converter.JacksonJavaTypeMapper;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Value;
@@ -135,8 +136,11 @@ public class RabbitMQConfig {
      */
     @Bean
     public MessageConverter messageConverter() {
-        // Trust our event packages for deserialization
-        return new JacksonJsonMessageConverter("com.taskboard.model.event", "com.taskboard.*", "java.util", "java.time");
+        JacksonJsonMessageConverter converter =
+                new JacksonJsonMessageConverter("com.taskboard.model.event", "com.taskboard.*", "java.util", "java.time");
+        // Ensure __TypeId__ header drives deserialization (critical for Object-typed listener methods)
+        converter.setTypePrecedence(JacksonJavaTypeMapper.TypePrecedence.TYPE_ID);
+        return converter;
     }
 }
 

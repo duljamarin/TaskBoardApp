@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore } from '@/store';
+import { NotificationBell } from '../notifications/NotificationBell';
 
 export const Navbar: React.FC = () => {
   const { username, isAdmin, isModerator, logout } = useAuthStore();
@@ -101,6 +102,9 @@ export const Navbar: React.FC = () => {
                 Moderator
               </span>
             )}
+
+            {/* Notification bell */}
+            <NotificationBell />
 
             {/* User dropdown */}
             <div className="relative" ref={dropdownRef}>

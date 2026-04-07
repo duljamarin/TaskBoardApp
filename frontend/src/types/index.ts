@@ -149,3 +149,22 @@ export interface CreateCommentRequest {
   content: string;
 }
 
+// User summary for assignment dropdowns
+export interface UserSummary {
+  id: number;
+  username: string;
+  fullName: string | null;
+}
+
+// Notification types
+export interface Notification {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  referenceId: number | null;
+  referenceType: string | null;
+  read: boolean;
+  createdAt: string;
+}
+

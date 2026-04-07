@@ -75,7 +75,7 @@ public class AuthorizationService {
         }
 
         // Admins can access everything
-        if (isAdmin()) {
+        if (isAdminOrModerator()) {
             return true;
         }
 
@@ -103,8 +103,8 @@ public class AuthorizationService {
             return false;
         }
 
-        // Admins can modify everything
-        if (isAdmin()) {
+        // Admins and moderators can modify everything
+        if (isAdminOrModerator()) {
             return true;
         }
 
@@ -112,7 +112,7 @@ public class AuthorizationService {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Board", "id", boardId));
 
-        // Only board owner can modify
+        // Board owner can modify
         return board.getOwner() != null && board.getOwner().getId().equals(user.getId());
     }
 

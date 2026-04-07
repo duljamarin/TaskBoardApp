@@ -25,8 +25,10 @@ public class CardCreatedEvent implements Serializable {
     private Long listId;
     private String listName;
     private Priority priority;
+    private Long assignedToUserId;
     private Long createdByUserId;
     private String createdByUsername;
+    private LocalDateTime dueDate;
     private LocalDateTime timestamp;
 }
 

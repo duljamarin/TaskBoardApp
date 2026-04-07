@@ -85,7 +85,7 @@ logging:
     com.taskboard: DEBUG
     org.springframework.web: INFO
     org.springframework.data: INFO
-    org.springframework.amqp: INFO
+    org.springframework.amqp: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql: TRACE
     org.flywaydb: DEBUG
@@ -99,13 +99,6 @@ taskboard:
     boards-ttl: 30
   websocket:
     allowed-origins: "*"
-
-# JWT Configuration
-app:
-  jwt:
-    secret: YourSuperSecretKeyForJWTTokenGenerationMustBeAtLeast256BitsLongForHS256AlgorithmToWorkProperly
-    expiration-ms: 1800000 # 30 minutes
-    refresh-expiration-ms: 604800000 # 7 days
   rabbitmq:
     exchange:
       card-events: taskboard.card.events
@@ -117,4 +110,12 @@ app:
       card-moved: card.moved
       card-created: card.created
       board-created: board.created
+      comment-added: comment.added
+
+# JWT Configuration
+app:
+  jwt:
+    secret: YourSuperSecretKeyForJWTTokenGenerationMustBeAtLeast256BitsLongForHS256AlgorithmToWorkProperly
+    expiration-ms: 1800000 # 30 minutes
+    refresh-expiration-ms: 604800000 # 7 days
 

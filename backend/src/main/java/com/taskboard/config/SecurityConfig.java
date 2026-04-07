@@ -23,7 +23,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-import java.util.List;
 
 /**
  * Security configuration for the application.
@@ -39,7 +38,7 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -56,6 +55,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/lists/**").authenticated()
                 .requestMatchers("/api/v1/comments/**").authenticated()
                 .requestMatchers("/api/v1/labels/**").authenticated()
+                .requestMatchers("/api/v1/notifications/**").authenticated()
+                .requestMatchers("/api/v1/users/**").authenticated()
                 // Admin endpoints
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/actuator/**").hasRole("ADMIN")

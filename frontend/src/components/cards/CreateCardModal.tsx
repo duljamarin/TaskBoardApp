@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { useBoardStore } from '../../store/boardStore';
-import { Priority } from '../../types';
-import { Modal } from '../common/Modal';
-import { Input } from '../common/Input';
-import { Button } from '../common/Button';
+import React, { useState, useEffect } from 'react';
+import { useBoardStore } from '@/store';
+import { Priority, UserSummary } from '@/types';
+import { userApi } from '@/api';
+import { Modal } from '@/components';
+import { Input } from '@/components';
+import { Button } from '@/components';
 
 interface CreateCardModalProps {
   isOpen: boolean;
@@ -16,9 +17,17 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ isOpen, onClos
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('MEDIUM');
   const [dueDate, setDueDate] = useState('');
+  const [assignedToId, setAssignedToId] = useState<number | undefined>(undefined);
+  const [users, setUsers] = useState<UserSummary[]>([]);
   const [error, setError] = useState('');
 
   const { createCard, loading } = useBoardStore();
+
+  useEffect(() => {
+    if (isOpen) {
+      userApi.listUsers().then(setUsers).catch(() => {});
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +45,7 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ isOpen, onClos
         listId,
         priority,
         dueDate: dueDate || undefined,
+        assignedToId,
       });
       resetForm();
       onClose();
@@ -49,6 +59,7 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ isOpen, onClos
     setDescription('');
     setPriority('MEDIUM');
     setDueDate('');
+    setAssignedToId(undefined);
     setError('');
   };
 
@@ -104,6 +115,24 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ isOpen, onClos
           </select>
         </div>
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Assign To (Optional)
+          </label>
+          <select
+            value={assignedToId ?? ''}
+            onChange={(e) => setAssignedToId(e.target.value ? Number(e.target.value) : undefined)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">Unassigned</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.fullName || user.username}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <Input
           label="Due Date (Optional)"
           type="date"
@@ -123,4 +152,3 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ isOpen, onClos
     </Modal>
   );
 };
-

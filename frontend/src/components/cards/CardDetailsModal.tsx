@@ -1,13 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { Card, Priority } from '../../types';
-import { useBoardStore } from '../../store/boardStore';
-import { Modal } from '../common/Modal';
-import { Input } from '../common/Input';
-import { Button } from '../common/Button';
-import { CommentSection } from './CommentSection';
-import { LabelBadge } from '../labels/LabelBadge';
-import { LabelPicker } from '../labels/LabelPicker';
-import { labelApi } from '../../api';
+import { Card, Priority } from '@/types';
+import { useBoardStore } from '@/store';
+import { Modal } from '@/components';
+import { Input } from '@/components';
+import { Button } from '@/components';
+import { CommentSection } from '@/components';
+import { LabelBadge } from '@/components';
+import { LabelPicker } from '@/components';
+import { labelApi } from '@/api';
 
 interface CardDetailsModalProps {
   isOpen: boolean;
@@ -86,7 +86,16 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ isOpen, onCl
     onClose();
   };
 
-  const isOverdue = card.dueDate && new Date(card.dueDate) < new Date();
+  const getDueDateStatus = () => {
+    if (!card.dueDate) return null;
+    const due = new Date(card.dueDate);
+    const now = new Date();
+    if (due < now) return 'overdue';
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    if (due <= threeDaysFromNow) return 'soon';
+    return 'normal';
+  };
+  const dueDateStatus = getDueDateStatus();
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title={isEditing ? 'Edit Card' : 'Card Details'}>
@@ -175,9 +184,14 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ isOpen, onCl
             {card.dueDate && (
               <div>
                 <span className="text-sm font-medium text-gray-500">Due Date:</span>
-                <span className={`ml-2 text-sm ${isOverdue ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
-                  {new Date(card.dueDate).toLocaleDateString()}
-                  {isOverdue && ' (Overdue)'}
+                <span className={`ml-2 text-sm ${
+                  dueDateStatus === 'overdue' ? 'text-red-600 font-semibold' :
+                  dueDateStatus === 'soon' ? 'text-amber-600 font-semibold' :
+                  'text-gray-700'
+                }`}>
+                  {new Date(card.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {dueDateStatus === 'overdue' && ' (Overdue)'}
+                  {dueDateStatus === 'soon' && ' (Soon)'}
                 </span>
               </div>
             )}

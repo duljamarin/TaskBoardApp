@@ -6,5 +6,7 @@ export { labelApi } from './labels';
 export { analyticsApi } from './analytics';
 export { commentApi } from './comments';
 export { adminApi } from './admin';
+export { notificationApi } from './notifications';
+export { userApi } from './users';
 export { default as api } from './axios';
 

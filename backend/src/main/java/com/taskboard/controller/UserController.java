@@ -1,10 +1,12 @@
 package com.taskboard.controller;
 
+import com.taskboard.repository.UserRepository;
 import com.taskboard.security.CurrentUser;
 import com.taskboard.security.UserPrincipal;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -22,7 +25,22 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/users")
 @CrossOrigin(origins = "*")
+@RequiredArgsConstructor
 public class UserController {
+
+    private final UserRepository userRepository;
+
+    /**
+     * List all active users (id, username, fullName) for assignment dropdowns.
+     */
+    @GetMapping
+    public ResponseEntity<List<UserSummary>> listUsers() {
+        List<UserSummary> users = userRepository.findAll().stream()
+                .filter(u -> Boolean.TRUE.equals(u.getActive()))
+                .map(u -> new UserSummary(u.getId(), u.getUsername(), u.getFullName()))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(users);
+    }
 
     /**
      * Get current authenticated user's profile.
@@ -70,6 +88,15 @@ public class UserController {
         private String username;
         private String email;
         private java.util.List<String> roles;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UserSummary {
+        private Long id;
+        private String username;
+        private String fullName;
     }
 }
 
