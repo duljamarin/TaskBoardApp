@@ -8,18 +8,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class AnalyticsConsumer {
 
+    private static final String METRIC_KEY_PREFIX = "analytics:";
+
     private final MessageConverter messageConverter;
-    private final ConcurrentHashMap<String, AtomicLong> metrics = new ConcurrentHashMap<>();
+    private final StringRedisTemplate redisTemplate;
 
     @RabbitListener(queues = "${taskboard.rabbitmq.queue.analytics:taskboard.analytics}")
     public void handleEvent(Message message) {
@@ -68,15 +72,25 @@ public class AnalyticsConsumer {
     }
 
     private void incrementMetric(String metricName) {
-        metrics.computeIfAbsent(metricName, k -> new AtomicLong(0)).incrementAndGet();
+        redisTemplate.opsForValue().increment(METRIC_KEY_PREFIX + metricName);
     }
 
-    public long getMetric(String metricName) {
-        AtomicLong metric = metrics.get(metricName);
-        return metric != null ? metric.get() : 0;
+    public long
+        getMetric(String metricName) {
+        String value = redisTemplate.opsForValue().get(METRIC_KEY_PREFIX + metricName);
+        return value != null ? Long.parseLong(value) : 0;
     }
 
-    public ConcurrentHashMap<String, AtomicLong> getAllMetrics() {
-        return new ConcurrentHashMap<>(metrics);
+    public Map<String, Long> getAllMetrics() {
+        Set<String> keys = redisTemplate.keys(METRIC_KEY_PREFIX + "*");
+        Map<String, Long> metrics = new HashMap<>();
+        if (keys != null) {
+            for (String key : keys) {
+                String value = redisTemplate.opsForValue().get(key);
+                String metricName = key.substring(METRIC_KEY_PREFIX.length());
+                metrics.put(metricName, value != null ? Long.parseLong(value) : 0);
+            }
+        }
+        return metrics;
     }
 }

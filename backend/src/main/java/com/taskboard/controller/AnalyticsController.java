@@ -4,13 +4,14 @@ import com.taskboard.messaging.consumer.AnalyticsConsumer;
 import com.taskboard.service.ListService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Set;
+
 
 /**
  * REST controller for analytics and metrics.
@@ -24,6 +25,7 @@ public class AnalyticsController {
 
     private final AnalyticsConsumer analyticsConsumer;
     private final ListService listService;
+    private final StringRedisTemplate redisTemplate;
 
     /**
      * Get all analytics metrics.
@@ -32,9 +34,7 @@ public class AnalyticsController {
     public ResponseEntity<Map<String, Object>> getAllMetrics() {
         log.debug("Fetching all analytics metrics");
 
-        ConcurrentHashMap<String, AtomicLong> rawMetrics = analyticsConsumer.getAllMetrics();
-        Map<String, Long> metrics = new HashMap<>();
-        rawMetrics.forEach((key, value) -> metrics.put(key, value.get()));
+        Map<String, Long> metrics = analyticsConsumer.getAllMetrics();
 
         Map<String, Object> response = new HashMap<>();
         response.put("metrics", metrics);
@@ -105,7 +105,7 @@ public class AnalyticsController {
     }
 
     /**
-     * Reset all in-memory metrics.
+     * Reset all analytics metrics in Redis.
      *
      * Supports both DELETE and GET for backward compatibility.
      */
@@ -113,7 +113,10 @@ public class AnalyticsController {
     public ResponseEntity<Map<String, String>> resetMetrics() {
         log.warn("Resetting all analytics metrics");
 
-        analyticsConsumer.getAllMetrics().clear();
+        Set<String> keys = redisTemplate.keys("analytics:*");
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
 
         Map<String, String> response = new HashMap<>();
         response.put("message", "All metrics have been reset");
