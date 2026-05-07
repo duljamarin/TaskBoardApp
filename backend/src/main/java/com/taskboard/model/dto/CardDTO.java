@@ -23,6 +23,7 @@ public class CardDTO implements Serializable {
     private Long id;
     private String title;
     private String description;
+    private Long boardId;
     private Long listId;
     private String listName;
     private Integer position;

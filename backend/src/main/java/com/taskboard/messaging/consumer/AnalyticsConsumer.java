@@ -8,12 +8,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 @Slf4j
 @Component
@@ -75,21 +76,26 @@ public class AnalyticsConsumer {
         redisTemplate.opsForValue().increment(METRIC_KEY_PREFIX + metricName);
     }
 
-    public long
-        getMetric(String metricName) {
+    public long getMetric(String metricName) {
         String value = redisTemplate.opsForValue().get(METRIC_KEY_PREFIX + metricName);
         return value != null ? Long.parseLong(value) : 0;
     }
 
     public Map<String, Long> getAllMetrics() {
-        Set<String> keys = redisTemplate.keys(METRIC_KEY_PREFIX + "*");
         Map<String, Long> metrics = new HashMap<>();
-        if (keys != null) {
-            for (String key : keys) {
+        ScanOptions options = ScanOptions.scanOptions()
+                .match(METRIC_KEY_PREFIX + "*")
+                .count(100)
+                .build();
+        try (Cursor<String> cursor = redisTemplate.scan(options)) {
+            while (cursor.hasNext()) {
+                String key = cursor.next();
                 String value = redisTemplate.opsForValue().get(key);
                 String metricName = key.substring(METRIC_KEY_PREFIX.length());
                 metrics.put(metricName, value != null ? Long.parseLong(value) : 0);
             }
+        } catch (Exception e) {
+            log.error("Error scanning Redis analytics metrics: {}", e.getMessage());
         }
         return metrics;
     }

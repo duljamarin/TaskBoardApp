@@ -26,6 +26,7 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long> 
      */
     @Query("SELECT a FROM ActivityLog a " +
            "LEFT JOIN FETCH a.user " +
+           "LEFT JOIN FETCH a.board " +
            "WHERE a.board.id = :boardId " +
            "ORDER BY a.createdAt DESC")
     List<ActivityLog> findRecentByBoardId(@Param("boardId") Long boardId, Pageable pageable);

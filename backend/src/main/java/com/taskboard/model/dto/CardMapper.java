@@ -25,6 +25,7 @@ public final class CardMapper {
                 .id(card.getId())
                 .title(card.getTitle())
                 .description(card.getDescription())
+                .boardId(card.getBoard() != null ? card.getBoard().getId() : null)
                 .listId(card.getList().getId())
                 .listName(card.getList().getName())
                 .position(card.getPosition())

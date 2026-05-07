@@ -85,6 +85,7 @@ logging:
     com.taskboard: DEBUG
     org.springframework.web: INFO
     org.springframework.data: INFO
+    org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: WARN
     org.springframework.amqp: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql: TRACE
@@ -115,7 +116,7 @@ taskboard:
 # JWT Configuration
 app:
   jwt:
-    secret: YourSuperSecretKeyForJWTTokenGenerationMustBeAtLeast256BitsLongForHS256AlgorithmToWorkProperly
+    secret: ${APP_JWT_SECRET:YourSuperSecretKeyForJWTTokenGenerationMustBeAtLeast256BitsLongForHS256AlgorithmToWorkProperly}
     expiration-ms: 1800000 # 30 minutes
-    refresh-expiration-ms: 604800000 # 7 days
+    refresh-expiration-ms: 86400000 # 24 hours
 

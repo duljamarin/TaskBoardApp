@@ -17,7 +17,6 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -81,12 +80,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                             }
                         }
                     }
-                }
-
-                // Propagate authentication to SecurityContextHolder for message-handling threads
-                if (accessor != null && accessor.getUser() != null) {
-                    SecurityContextHolder.getContext().setAuthentication(
-                            (UsernamePasswordAuthenticationToken) accessor.getUser());
                 }
 
                 return message;

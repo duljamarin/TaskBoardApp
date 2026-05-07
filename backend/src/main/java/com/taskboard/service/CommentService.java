@@ -13,12 +13,15 @@ import com.taskboard.repository.CommentRepository;
 import com.taskboard.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +45,7 @@ public class CommentService {
     private final ActivityLogService activityLogService;
     private final EventPublisher eventPublisher;
     private final SimpMessagingTemplate messagingTemplate;
+    private final CacheManager cacheManager;
 
 
     @Cacheable(value = "comments", key = "#cardId")
@@ -73,8 +77,8 @@ public class CommentService {
                 .build();
         comment = commentRepository.save(comment);
         log.info("Created comment {} on card '{}'", comment.getId(), card.getTitle());
-        publishCommentAddedEvent(comment, card);
-        sendWebSocketUpdate(card.getBoard().getId(), cardId, "COMMENT_ADDED", toDTO(comment));
+
+        // Log activity (DB write — stays inside transaction)
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("comment_id", comment.getId());
         metadata.put("author", author.getUsername());
@@ -82,18 +86,36 @@ public class CommentService {
                 card.getBoard(), author, ActivityType.COMMENT_ADDED,
                 String.format("'%s' commented on card '%s'", author.getUsername(), card.getTitle()),
                 metadata);
-        return toDTO(comment);
+
+        // Publish event and WebSocket update after DB commit to prevent dual-write
+        final Comment savedComment = comment;
+        final Card savedCard = card;
+        final Long boardId = card.getBoard().getId();
+        final CommentDTO commentDTO = toDTO(comment);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                publishCommentAddedEvent(savedComment, savedCard);
+                sendWebSocketUpdate(boardId, cardId, "COMMENT_ADDED", commentDTO);
+            }
+        });
+
+        return commentDTO;
     }
 
 
-    @CacheEvict(value = "comments", key = "#result.cardId")
     @Transactional
     public CommentDTO updateComment(Long commentId, CreateCommentRequest request, Long requestingUserId) {
         Comment comment = findCommentOrThrow(commentId);
         requireAuthor(comment, requestingUserId);
+        Long cardId = comment.getCard().getId();
         comment.setContent(request.getContent());
         comment.setEdited(true);
         comment = commentRepository.save(comment);
+        org.springframework.cache.Cache commentsCache = cacheManager.getCache("comments");
+        if (commentsCache != null) {
+            commentsCache.evict(cardId);
+        }
         log.info("Updated comment {} on card {}", commentId, comment.getCard().getId());
         sendWebSocketUpdate(
                 comment.getCard().getBoard().getId(),

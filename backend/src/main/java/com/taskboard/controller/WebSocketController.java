@@ -9,9 +9,11 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
+import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,10 +41,10 @@ public class WebSocketController {
     public Map<String, Object> handleCardMove(
             @DestinationVariable Long boardId,
             CardMoveDTO moveDTO,
-            @AuthenticationPrincipal UserPrincipal user) {
+            Principal principal) {
 
-        // Verify user can access this board
-        authorizationService.requireBoardAccess(boardId);
+        UserPrincipal user = extractUserPrincipal(principal);
+        authorizationService.requireBoardAccess(boardId, user);
 
         log.info("WebSocket: Card move received for board {} from user {} - newListId: {}, newPosition: {}",
                 boardId, user.getUsername(), moveDTO.getNewListId(), moveDTO.getNewPosition());
@@ -67,10 +69,10 @@ public class WebSocketController {
     @SendTo("/topic/board/{boardId}")
     public Map<String, Object> handleBoardSubscription(
             @DestinationVariable Long boardId,
-            @AuthenticationPrincipal UserPrincipal user) {
+            Principal principal) {
 
-        // Verify user can access this board
-        authorizationService.requireBoardAccess(boardId);
+        UserPrincipal user = extractUserPrincipal(principal);
+        authorizationService.requireBoardAccess(boardId, user);
 
         log.info("WebSocket: User {} subscribed to board {}", user.getUsername(), boardId);
 
@@ -84,5 +86,17 @@ public class WebSocketController {
 
         return response;
     }
-}
 
+    /**
+     * Extracts the UserPrincipal from the STOMP session principal.
+     * Spring STOMP stores the UsernamePasswordAuthenticationToken (set during CONNECT)
+     * as the session Principal, so we unwrap it here to get the actual UserPrincipal.
+     */
+    private UserPrincipal extractUserPrincipal(Principal principal) {
+        if (principal instanceof UsernamePasswordAuthenticationToken token
+                && token.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            return userPrincipal;
+        }
+        throw new AccessDeniedException("User not authenticated");
+    }
+}

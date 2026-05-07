@@ -11,8 +11,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -107,11 +110,18 @@ public class BoardService {
         board = boardRepository.save(board);
         log.info("Created board with id: {} for user: {}", board.getId(), owner.getUsername());
 
-        // Publish event
-        publishBoardCreatedEvent(board);
-
-        // Log activity
+        // Log activity (DB write — stays inside transaction)
         logBoardCreated(board);
+
+        // Defer RabbitMQ publish to after DB commit — prevents ghost events
+        // if the transaction rolls back after the publish has already been sent
+        final Board savedBoard = board;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                publishBoardCreatedEvent(savedBoard);
+            }
+        });
 
         return convertToDTO(board);
     }
@@ -119,7 +129,10 @@ public class BoardService {
     /**
      * Update an existing board.
      */
-    @CacheEvict(value = "boards", allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "boards", key = "'all'"),
+        @CacheEvict(value = "boards", key = "#id")
+    })
     @Transactional
     public BoardDTO updateBoard(Long id, CreateBoardRequest request) {
         log.info("Updating board with id: {}", id);
@@ -153,7 +166,10 @@ public class BoardService {
     /**
      * Soft delete (archive) a board.
      */
-    @CacheEvict(value = "boards", allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "boards", key = "'all'"),
+        @CacheEvict(value = "boards", key = "#id")
+    })
     @Transactional
     public void deleteBoard(Long id) {
         log.info("Archiving board with id: {}", id);

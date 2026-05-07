@@ -13,10 +13,15 @@ import com.taskboard.repository.ListRepository;
 import com.taskboard.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -41,6 +46,7 @@ public class CardService {
     private final ActivityLogService activityLogService;
     private final SimpMessagingTemplate messagingTemplate;
     private final CardMovementService cardMovementService;
+    private final CacheManager cacheManager;
 
     /**
      * Get all cards in a list.
@@ -67,7 +73,10 @@ public class CardService {
     /**
      * Create a new card.
      */
-    @CacheEvict(value = "boards", allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "boards", key = "'all'"),
+        @CacheEvict(value = "boards", key = "#result.boardId")
+    })
     @Transactional
     public CardDTO createCard(CreateCardRequest request, Long userId) {
         log.info("Creating new card: {} in list: {} by user: {}", request.getTitle(), request.getListId(), userId);
@@ -109,14 +118,20 @@ public class CardService {
         card = cardRepository.save(card);
         log.info("Created card with id: {} by user: {}", card.getId(), creator.getUsername());
 
-        // Publish event to RabbitMQ
-        publishCardCreatedEvent(card, userId, creator.getUsername());
-
-        // Send WebSocket update
-        sendWebSocketUpdate(list.getBoard().getId(), "CARD_CREATED", CardMapper.toDTO(card));
-
-        // Log activity with creator
+        // Log activity inside transaction (DB write)
         logCardCreated(card, creator);
+
+        // Defer RabbitMQ + WebSocket to after transaction commits
+        final Card savedCard = card;
+        final Long creatorId = userId;
+        final String creatorName = creator.getUsername();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                publishCardCreatedEvent(savedCard, creatorId, creatorName);
+                sendWebSocketUpdate(savedCard.getBoard().getId(), "CARD_CREATED", CardMapper.toDTO(savedCard));
+            }
+        });
 
         return CardMapper.toDTO(card);
     }
@@ -124,7 +139,10 @@ public class CardService {
     /**
      * Update a card.
      */
-    @CacheEvict(value = "boards", allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "boards", key = "'all'"),
+        @CacheEvict(value = "boards", key = "#result.boardId")
+    })
     @Transactional
     public CardDTO updateCard(Long id, CreateCardRequest request) {
         log.info("Updating card with id: {}", id);
@@ -149,14 +167,20 @@ public class CardService {
         card = cardRepository.save(card);
         log.info("Updated card: {}", card.getTitle());
 
-        // Send WebSocket update
-        sendWebSocketUpdate(card.getBoard().getId(), "CARD_UPDATED", CardMapper.toDTO(card));
-
-        // Log activity
+        // Log activity inside transaction (DB write)
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("card_title", card.getTitle());
         activityLogService.logActivity(card.getBoard(), card.getAssignedTo(), ActivityType.CARD_UPDATED,
                 String.format("Card '%s' was updated", card.getTitle()), metadata);
+
+        // Defer WebSocket to after transaction commits
+        final Card updatedCard = card;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sendWebSocketUpdate(updatedCard.getBoard().getId(), "CARD_UPDATED", CardMapper.toDTO(updatedCard));
+            }
+        });
 
         return CardMapper.toDTO(card);
     }
@@ -173,7 +197,6 @@ public class CardService {
     /**
      * Delete a card.
      */
-    @CacheEvict(value = "boards", allEntries = true)
     @Transactional
     public void deleteCard(Long id) {
         log.info("Deleting card with id: {}", id);
@@ -185,6 +208,7 @@ public class CardService {
         Long listId = card.getList().getId();
         Integer deletedPosition = card.getPosition();
         Board board = card.getBoard();
+        Long boardId = board.getId();
 
         cardRepository.delete(card);
 
@@ -193,17 +217,31 @@ public class CardService {
 
         log.info("Deleted card: {}", cardTitle);
 
-        // Send WebSocket update
-        Map<String, Object> deleteData = new HashMap<>();
-        deleteData.put("cardId", id);
-        deleteData.put("listId", listId);
-        sendWebSocketUpdate(board.getId(), "CARD_DELETED", deleteData);
+        // Evict only the affected board from cache
+        Cache boardsCache = cacheManager.getCache("boards");
+        if (boardsCache != null) {
+            boardsCache.evict("all");
+            boardsCache.evict(boardId);
+        }
 
-        // Log activity
+        // Log activity (DB write — stays inside transaction)
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("card_title", cardTitle);
         activityLogService.logActivity(board, null, ActivityType.CARD_DELETED,
                 String.format("Card '%s' was deleted", cardTitle), metadata);
+
+        final Long boardIdFinal = boardId;
+        final Long cardIdFinal = id;
+        final Long listIdFinal = listId;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                Map<String, Object> deleteData = new HashMap<>();
+                deleteData.put("cardId", cardIdFinal);
+                deleteData.put("listId", listIdFinal);
+                sendWebSocketUpdate(boardIdFinal, "CARD_DELETED", deleteData);
+            }
+        });
     }
 
     /**

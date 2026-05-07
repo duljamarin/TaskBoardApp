@@ -29,11 +29,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthorizationService {
 
-    private final BoardRepository   boardRepository;
-    private final ListRepository    listRepository;
-    private final CardRepository    cardRepository;
+    private final BoardRepository boardRepository;
+    private final ListRepository listRepository;
+    private final CardRepository cardRepository;
     private final CommentRepository commentRepository;
-    private final LabelRepository   labelRepository;
+    private final LabelRepository labelRepository;
 
     /**
      * Check if current user is admin.
@@ -88,9 +88,8 @@ public class AuthorizationService {
             return true;
         }
 
-        // For now, allow all authenticated users to access boards
-        // In the future, you might want to implement board members/collaborators
-        return true;
+        // Only the board owner can access the board
+        return false;
     }
 
     /**
@@ -221,10 +220,35 @@ public class AuthorizationService {
     }
 
     /**
+     * Check if the given user can access the board.
+     * Use this overload in WebSocket handlers where SecurityContextHolder is not populated.
+     */
+    @Transactional(readOnly = true)
+    public boolean canAccessBoard(Long boardId, UserPrincipal user) {
+        if (user.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                || user.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_MODERATOR"))) {
+            return true;
+        }
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Board", "id", boardId));
+        return board.getOwner() != null && board.getOwner().getId().equals(user.getId());
+    }
+
+    /**
      * Verify and throw exception if user cannot access board.
      */
     public void requireBoardAccess(Long boardId) {
         if (!canAccessBoard(boardId)) {
+            throw new AccessDeniedException("You do not have permission to access this board");
+        }
+    }
+
+    /**
+     * Verify and throw exception if the given user cannot access board.
+     * Use this overload in WebSocket handlers where SecurityContextHolder is not populated.
+     */
+    public void requireBoardAccess(Long boardId, UserPrincipal user) {
+        if (!canAccessBoard(boardId, user)) {
             throw new AccessDeniedException("You do not have permission to access this board");
         }
     }
