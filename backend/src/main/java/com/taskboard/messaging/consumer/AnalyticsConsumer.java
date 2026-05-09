@@ -31,14 +31,11 @@ public class AnalyticsConsumer {
         Object event = messageConverter.fromMessage(message);
         log.debug("Analytics consumer received: {}", event.getClass().getSimpleName());
 
-        if (event instanceof CardMovedEvent e) {
-            handleCardMoved(e);
-        } else if (event instanceof CardCreatedEvent e) {
-            handleCardCreated(e);
-        } else if (event instanceof BoardCreatedEvent e) {
-            handleBoardCreated(e);
-        } else {
-            log.warn("Unrecognized event type in analytics queue: {}", event.getClass().getName());
+        switch (event) {
+            case CardMovedEvent e -> handleCardMoved(e);
+            case CardCreatedEvent e -> handleCardCreated(e);
+            case BoardCreatedEvent e -> handleBoardCreated(e);
+            default -> log.warn("Unrecognized event type in analytics queue: {}", event.getClass().getName());
         }
     }
 
