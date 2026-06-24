@@ -16,8 +16,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+import static com.taskboard.service.TransactionHooks.afterCommit;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -116,12 +115,9 @@ public class CardMovementService {
         final Integer fromPosition = oldPosition;
         final User moverFinal = mover;
         final Long toListId = newList.getId();
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                publishCardMovedEvent(movedCard, fromListId, fromListName, fromPosition, moverFinal);
-                sendWebSocketUpdate(movedCard, fromListId, toListId);
-            }
+        afterCommit(() -> {
+            publishCardMovedEvent(movedCard, fromListId, fromListName, fromPosition, moverFinal);
+            sendWebSocketUpdate(movedCard, fromListId, toListId);
         });
 
         return CardMapper.toDTO(card);

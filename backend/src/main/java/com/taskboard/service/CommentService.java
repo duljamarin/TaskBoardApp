@@ -20,8 +20,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+import static com.taskboard.service.TransactionHooks.afterCommit;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -92,12 +91,9 @@ public class CommentService {
         final Card savedCard = card;
         final Long boardId = card.getBoard().getId();
         final CommentDTO commentDTO = toDTO(comment);
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                publishCommentAddedEvent(savedComment, savedCard);
-                sendWebSocketUpdate(boardId, cardId, "COMMENT_ADDED", commentDTO);
-            }
+        afterCommit(() -> {
+            publishCommentAddedEvent(savedComment, savedCard);
+            sendWebSocketUpdate(boardId, cardId, "COMMENT_ADDED", commentDTO);
         });
 
         return commentDTO;

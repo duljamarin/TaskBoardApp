@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,12 +26,13 @@ public class NotificationController {
 
     /**
      * Diagnostic: create a test notification directly (bypasses RabbitMQ).
-     * Call: POST /api/v1/notifications/test
+     * Restricted to admins only.
      */
     @PostMapping("/test")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<NotificationDTO> sendTestNotification(
             @AuthenticationPrincipal UserPrincipal user) {
-        log.warn(">>> TEST: Creating test notification for user {} (id={})", user.getUsername(), user.getId());
+        log.info("Creating test notification for user {} (id={})", user.getUsername(), user.getId());
         NotificationDTO dto = notificationService.createNotification(
                 user.getId(),
                 NotificationType.CARD_ASSIGNED,

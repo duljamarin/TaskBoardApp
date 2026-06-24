@@ -14,8 +14,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+import static com.taskboard.service.TransactionHooks.afterCommit;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -38,16 +37,18 @@ public class BoardService {
     private final ActivityLogService activityLogService;
 
     /**
-     * Get all non-archived boards with lists and cards.
-     * Returns full board details so the UI can display list/card counts.
+     * Get non-archived boards visible to the given user.
+     * Regular users see only their own boards; admins/moderators see all.
      */
-    @Cacheable(value = "boards", key = "'all'")
+    @Cacheable(value = "boards", key = "'user:' + #userId")
     @Transactional(readOnly = true)
-    public List<BoardDTO> getAllBoards() {
-        log.debug("Fetching all boards with lists and cards from database");
+    public List<BoardDTO> getAllBoards(Long userId, boolean isAdminOrModerator) {
+        log.debug("Fetching boards for user {} (admin/mod: {})", userId, isAdminOrModerator);
 
-        // Fetch all boards with lists in one query
-        List<Board> boards = boardRepository.findAllByArchivedFalseWithLists();
+        // Admins/moderators see all boards; regular users see only their own
+        List<Board> boards = isAdminOrModerator
+                ? boardRepository.findAllByArchivedFalseWithLists()
+                : boardRepository.findByOwnerIdAndArchivedFalseWithLists(userId);
 
         // If there are boards with lists, fetch all their cards in one query per board
         if (!boards.isEmpty()) {
@@ -114,14 +115,8 @@ public class BoardService {
         logBoardCreated(board);
 
         // Defer RabbitMQ publish to after DB commit — prevents ghost events
-        // if the transaction rolls back after the publish has already been sent
         final Board savedBoard = board;
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                publishBoardCreatedEvent(savedBoard);
-            }
-        });
+        afterCommit(() -> publishBoardCreatedEvent(savedBoard));
 
         return convertToDTO(board);
     }

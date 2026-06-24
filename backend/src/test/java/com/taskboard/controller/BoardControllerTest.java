@@ -82,13 +82,39 @@ class BoardControllerTest {
     @WithMockUserPrincipal(id = 1L, username = "testuser", roles = {"USER"})
     void getAllBoards_ShouldReturnBoardsList() throws Exception {
         List<BoardDTO> boards = Arrays.asList(testBoard);
-        when(boardService.getAllBoards()).thenReturn(boards);
+        when(authorizationService.isAdminOrModerator()).thenReturn(false);
+        when(boardService.getAllBoards(1L, false)).thenReturn(boards);
 
         mockMvc.perform(get("/api/v1/boards"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].name").value("Test Board"));
+    }
+
+    @Test
+    @WithMockUserPrincipal(id = 2L, username = "otheruser", roles = {"USER"})
+    void getAllBoards_RegularUser_ShouldOnlySeeOwnBoards() throws Exception {
+        // User 2 has no boards — service returns empty for non-admin
+        when(authorizationService.isAdminOrModerator()).thenReturn(false);
+        when(boardService.getAllBoards(2L, false)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/boards"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @WithMockUserPrincipal(id = 3L, username = "adminuser", roles = {"ADMIN"})
+    void getAllBoards_Admin_ShouldSeeAllBoards() throws Exception {
+        List<BoardDTO> boards = Arrays.asList(testBoard);
+        when(authorizationService.isAdminOrModerator()).thenReturn(true);
+        when(boardService.getAllBoards(3L, true)).thenReturn(boards);
+
+        mockMvc.perform(get("/api/v1/boards"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(1));
     }
 
     @Test

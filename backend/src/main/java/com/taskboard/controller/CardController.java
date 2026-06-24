@@ -24,7 +24,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/cards")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class CardController {
 
     private final CardService cardService;

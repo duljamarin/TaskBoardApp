@@ -3,6 +3,7 @@ package com.taskboard.controller;
 import com.taskboard.model.dto.ActivityLogDTO;
 import com.taskboard.model.dto.BoardDTO;
 import com.taskboard.model.dto.CreateBoardRequest;
+import com.taskboard.security.AuthorizationService;
 import com.taskboard.security.CurrentUser;
 import com.taskboard.security.UserPrincipal;
 import com.taskboard.service.ActivityLogService;
@@ -25,20 +26,21 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/boards")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class BoardController {
 
     private final BoardService boardService;
     private final ActivityLogService activityLogService;
+    private final AuthorizationService authorizationService;
 
     /**
-     * Get all boards.
-     * All authenticated users can view boards.
+     * Get boards visible to the current user.
+     * Regular users see only their own boards; admins/moderators see all.
      */
     @GetMapping
     public ResponseEntity<List<BoardDTO>> getAllBoards(@CurrentUser UserPrincipal currentUser) {
-        log.info("GET /api/v1/boards - User: {} - Getting all boards", currentUser.getUsername());
-        List<BoardDTO> boards = boardService.getAllBoards();
+        log.info("GET /api/v1/boards - User: {} - Getting boards", currentUser.getUsername());
+        List<BoardDTO> boards = boardService.getAllBoards(
+                currentUser.getId(), authorizationService.isAdminOrModerator());
         return ResponseEntity.ok(boards);
     }
 

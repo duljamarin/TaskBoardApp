@@ -20,8 +20,7 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+import static com.taskboard.service.TransactionHooks.afterCommit;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -125,12 +124,9 @@ public class CardService {
         final Card savedCard = card;
         final Long creatorId = userId;
         final String creatorName = creator.getUsername();
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                publishCardCreatedEvent(savedCard, creatorId, creatorName);
-                sendWebSocketUpdate(savedCard.getBoard().getId(), "CARD_CREATED", CardMapper.toDTO(savedCard));
-            }
+        afterCommit(() -> {
+            publishCardCreatedEvent(savedCard, creatorId, creatorName);
+            sendWebSocketUpdate(savedCard.getBoard().getId(), "CARD_CREATED", CardMapper.toDTO(savedCard));
         });
 
         return CardMapper.toDTO(card);
@@ -175,12 +171,7 @@ public class CardService {
 
         // Defer WebSocket to after transaction commits
         final Card updatedCard = card;
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                sendWebSocketUpdate(updatedCard.getBoard().getId(), "CARD_UPDATED", CardMapper.toDTO(updatedCard));
-            }
-        });
+        afterCommit(() -> sendWebSocketUpdate(updatedCard.getBoard().getId(), "CARD_UPDATED", CardMapper.toDTO(updatedCard)));
 
         return CardMapper.toDTO(card);
     }
@@ -233,14 +224,11 @@ public class CardService {
         final Long boardIdFinal = boardId;
         final Long cardIdFinal = id;
         final Long listIdFinal = listId;
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                Map<String, Object> deleteData = new HashMap<>();
-                deleteData.put("cardId", cardIdFinal);
-                deleteData.put("listId", listIdFinal);
-                sendWebSocketUpdate(boardIdFinal, "CARD_DELETED", deleteData);
-            }
+        afterCommit(() -> {
+            Map<String, Object> deleteData = new HashMap<>();
+            deleteData.put("cardId", cardIdFinal);
+            deleteData.put("listId", listIdFinal);
+            sendWebSocketUpdate(boardIdFinal, "CARD_DELETED", deleteData);
         });
     }
 

@@ -1,11 +1,7 @@
 package com.taskboard.security;
 
 import com.taskboard.exception.ResourceNotFoundException;
-import com.taskboard.model.entity.Board;
-import com.taskboard.model.entity.BoardList;
-import com.taskboard.model.entity.Card;
 import com.taskboard.model.entity.Comment;
-import com.taskboard.model.entity.Label;
 import com.taskboard.repository.BoardRepository;
 import com.taskboard.repository.CardRepository;
 import com.taskboard.repository.CommentRepository;
@@ -22,7 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service for authorization checks.
- * Provides methods to verify user permissions on resources.
+ * Uses lightweight projection queries to avoid loading full entity graphs
+ * during permission checks (e.g., only fetches owner_id instead of the whole Board).
  */
 @Slf4j
 @Service("authorizationService")
@@ -35,180 +32,86 @@ public class AuthorizationService {
     private final CommentRepository commentRepository;
     private final LabelRepository labelRepository;
 
-    /**
-     * Check if current user is admin.
-     */
+    private static final SimpleGrantedAuthority ROLE_ADMIN = new SimpleGrantedAuthority("ROLE_ADMIN");
+    private static final SimpleGrantedAuthority ROLE_MODERATOR = new SimpleGrantedAuthority("ROLE_MODERATOR");
+
     public boolean isAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) {
-            return false;
-        }
-        return auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        return auth != null && auth.getAuthorities().contains(ROLE_ADMIN);
     }
 
-    /**
-     * Check if current user is moderator.
-     */
     public boolean isModerator() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) {
-            return false;
-        }
-        return auth.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_MODERATOR"));
+        return auth != null && auth.getAuthorities().contains(ROLE_MODERATOR);
     }
 
-    /**
-     * Check if current user is admin or moderator.
-     */
     public boolean isAdminOrModerator() {
-        return isAdmin() || isModerator();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        return auth.getAuthorities().contains(ROLE_ADMIN)
+                || auth.getAuthorities().contains(ROLE_MODERATOR);
     }
 
     /**
-     * Check if user owns the board or is admin.
+     * Check if the current user can access a board.
+     * Uses a lightweight query that only fetches the owner ID.
      */
     @Transactional(readOnly = true)
     public boolean canAccessBoard(Long boardId) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return false;
-        }
-
-        // Admins can access everything
-        if (isAdminOrModerator()) {
-            return true;
-        }
-
-        UserPrincipal user = (UserPrincipal) auth.getPrincipal();
-        Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new ResourceNotFoundException("Board", "id", boardId));
-
-        // Board owner can access
-        if (board.getOwner() != null && board.getOwner().getId().equals(user.getId())) {
-            return true;
-        }
-
-        // Only the board owner can access the board
-        return false;
+        return hasPermissionOnBoard(boardId);
     }
 
-    /**
-     * Check if user can modify the board (owner or admin).
-     */
     @Transactional(readOnly = true)
     public boolean canModifyBoard(Long boardId) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return false;
-        }
-
-        // Admins and moderators can modify everything
-        if (isAdminOrModerator()) {
-            return true;
-        }
-
-        UserPrincipal user = (UserPrincipal) auth.getPrincipal();
-        Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new ResourceNotFoundException("Board", "id", boardId));
-
-        // Board owner can modify
-        return board.getOwner() != null && board.getOwner().getId().equals(user.getId());
+        return hasPermissionOnBoard(boardId);
     }
 
-    /**
-     * Check if user can delete the board (owner or admin).
-     */
     @Transactional(readOnly = true)
     public boolean canDeleteBoard(Long boardId) {
-        return canModifyBoard(boardId);
+        return hasPermissionOnBoard(boardId);
     }
 
     /**
-     * Check if user can access a list.
+     * Check if user can access a list — resolves list → board with a single scalar query.
      */
     @Transactional(readOnly = true)
     public boolean canAccessList(Long listId) {
-        BoardList list = listRepository.findById(listId)
+        Long boardId = listRepository.findBoardIdByListId(listId)
                 .orElseThrow(() -> new ResourceNotFoundException("List", "id", listId));
-        return canAccessBoard(list.getBoard().getId());
+        return hasPermissionOnBoard(boardId);
     }
 
-    /**
-     * Check if user can modify a list.
-     */
     @Transactional(readOnly = true)
     public boolean canModifyList(Long listId) {
-        BoardList list = listRepository.findById(listId)
+        Long boardId = listRepository.findBoardIdByListId(listId)
                 .orElseThrow(() -> new ResourceNotFoundException("List", "id", listId));
-        return canModifyBoard(list.getBoard().getId());
+        return hasPermissionOnBoard(boardId);
     }
 
     /**
-     * Check if user can access a card.
+     * Check if user can access a card — resolves card → board with a single scalar query.
      */
     @Transactional(readOnly = true)
     public boolean canAccessCard(Long cardId) {
-        Card card = cardRepository.findById(cardId)
+        Long boardId = cardRepository.findBoardIdByCardId(cardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Card", "id", cardId));
-        return canAccessBoard(card.getList().getBoard().getId());
+        return hasPermissionOnBoard(boardId);
     }
 
-    /**
-     * Check if user can modify a card.
-     */
     @Transactional(readOnly = true)
     public boolean canModifyCard(Long cardId) {
-        Card card = cardRepository.findById(cardId)
+        Long boardId = cardRepository.findBoardIdByCardId(cardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Card", "id", cardId));
-        return canModifyBoard(card.getList().getBoard().getId());
+        return hasPermissionOnBoard(boardId);
     }
 
-    /**
-     * Get current authenticated user ID.
-     */
-    public Long getCurrentUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            throw new AccessDeniedException("User not authenticated");
-        }
-
-        if (auth.getPrincipal() instanceof UserPrincipal) {
-            return ((UserPrincipal) auth.getPrincipal()).getId();
-        }
-
-        throw new AccessDeniedException("Invalid authentication principal");
-    }
-
-    /**
-     * Get current authenticated user principal.
-     */
-    public UserPrincipal getCurrentUser() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            throw new AccessDeniedException("User not authenticated");
-        }
-
-        if (auth.getPrincipal() instanceof UserPrincipal) {
-            return (UserPrincipal) auth.getPrincipal();
-        }
-
-        throw new AccessDeniedException("Invalid authentication principal");
-    }
-
-    /**
-     * Check if user can modify a label (delegates to board-level permission).
-     */
     @Transactional(readOnly = true)
     public boolean canModifyLabel(Long labelId) {
-        Label label = labelRepository.findByIdWithBoard(labelId)
+        var label = labelRepository.findByIdWithBoard(labelId)
                 .orElseThrow(() -> new ResourceNotFoundException("Label", "id", labelId));
-        return canModifyBoard(label.getBoard().getId());
+        return hasPermissionOnBoard(label.getBoard().getId());
     }
 
-    /**
-     * Check if current user can modify (edit/delete) a comment.
-     * Admins and the original author are allowed.
-     */
     @Transactional(readOnly = true)
     public boolean canModifyComment(Long commentId) {
         if (isAdmin()) return true;
@@ -219,47 +122,77 @@ public class AuthorizationService {
                 && comment.getAuthor().getId().equals(user.getId());
     }
 
-    /**
-     * Check if the given user can access the board.
-     * Use this overload in WebSocket handlers where SecurityContextHolder is not populated.
-     */
-    @Transactional(readOnly = true)
-    public boolean canAccessBoard(Long boardId, UserPrincipal user) {
-        if (user.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"))
-                || user.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_MODERATOR"))) {
-            return true;
+    public Long getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new AccessDeniedException("User not authenticated");
         }
-        Board board = boardRepository.findById(boardId)
-                .orElseThrow(() -> new ResourceNotFoundException("Board", "id", boardId));
-        return board.getOwner() != null && board.getOwner().getId().equals(user.getId());
+        if (auth.getPrincipal() instanceof UserPrincipal principal) {
+            return principal.getId();
+        }
+        throw new AccessDeniedException("Invalid authentication principal");
+    }
+
+    public UserPrincipal getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new AccessDeniedException("User not authenticated");
+        }
+        if (auth.getPrincipal() instanceof UserPrincipal principal) {
+            return principal;
+        }
+        throw new AccessDeniedException("Invalid authentication principal");
     }
 
     /**
-     * Verify and throw exception if user cannot access board.
+     * Overload for WebSocket handlers where SecurityContextHolder is not populated.
      */
+    @Transactional(readOnly = true)
+    public boolean canAccessBoard(Long boardId, UserPrincipal user) {
+        if (user.getAuthorities().contains(ROLE_ADMIN)
+                || user.getAuthorities().contains(ROLE_MODERATOR)) {
+            return true;
+        }
+        Long ownerId = boardRepository.findOwnerIdByBoardId(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Board", "id", boardId));
+        return ownerId.equals(user.getId());
+    }
+
     public void requireBoardAccess(Long boardId) {
         if (!canAccessBoard(boardId)) {
             throw new AccessDeniedException("You do not have permission to access this board");
         }
     }
 
-    /**
-     * Verify and throw exception if the given user cannot access board.
-     * Use this overload in WebSocket handlers where SecurityContextHolder is not populated.
-     */
     public void requireBoardAccess(Long boardId, UserPrincipal user) {
         if (!canAccessBoard(boardId, user)) {
             throw new AccessDeniedException("You do not have permission to access this board");
         }
     }
 
-    /**
-     * Verify and throw exception if user cannot modify board.
-     */
     public void requireBoardModification(Long boardId) {
         if (!canModifyBoard(boardId)) {
             throw new AccessDeniedException("You do not have permission to modify this board");
         }
     }
-}
 
+    /**
+     * Core permission check: admin/moderator pass immediately,
+     * otherwise compare the current user's ID against the board owner ID.
+     * Only fetches a single Long column from the database.
+     */
+    private boolean hasPermissionOnBoard(Long boardId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return false;
+        }
+        if (auth.getAuthorities().contains(ROLE_ADMIN)
+                || auth.getAuthorities().contains(ROLE_MODERATOR)) {
+            return true;
+        }
+        UserPrincipal user = (UserPrincipal) auth.getPrincipal();
+        Long ownerId = boardRepository.findOwnerIdByBoardId(boardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Board", "id", boardId));
+        return ownerId.equals(user.getId());
+    }
+}

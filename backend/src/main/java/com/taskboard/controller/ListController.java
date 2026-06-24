@@ -23,7 +23,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/lists")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class ListController {
 
     private final ListService listService;

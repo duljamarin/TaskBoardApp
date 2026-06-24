@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.repository.query.Param;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +28,15 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
            "WHERE b.archived = false " +
            "ORDER BY b.id DESC")
     List<Board> findAllByArchivedFalseWithLists();
+
+    /**
+     * Find non-archived boards owned by a specific user, with lists eagerly loaded.
+     */
+    @Query("SELECT DISTINCT b FROM Board b " +
+           "LEFT JOIN FETCH b.lists " +
+           "WHERE b.owner.id = :ownerId AND b.archived = false " +
+           "ORDER BY b.id DESC")
+    List<Board> findByOwnerIdAndArchivedFalseWithLists(@Param("ownerId") Long ownerId);
 
     /**
      * Find a specific non-archived board by ID.
@@ -65,5 +76,12 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT b FROM Board b WHERE b.id = :id")
     Optional<Board> findByIdForUpdate(Long id);
+
+    /**
+     * Lightweight ownership check — returns only the owner's user ID.
+     * Avoids loading the full Board entity graph for authorization checks.
+     */
+    @Query("SELECT b.owner.id FROM Board b WHERE b.id = :boardId")
+    Optional<Long> findOwnerIdByBoardId(@Param("boardId") Long boardId);
 }
 

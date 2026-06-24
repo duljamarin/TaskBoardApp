@@ -67,5 +67,11 @@ public interface ListRepository extends JpaRepository<BoardList, Long> {
      * Count lists in a board.
      */
     long countByBoardId(Long boardId);
+
+    /**
+     * Lightweight lookup: get the board ID for a list without loading the full entity.
+     */
+    @Query("SELECT l.board.id FROM BoardList l WHERE l.id = :listId")
+    Optional<Long> findBoardIdByListId(@Param("listId") Long listId);
 }
 

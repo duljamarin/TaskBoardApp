@@ -31,6 +31,9 @@ spring:
         jdbc:
           time_zone: UTC
         default_batch_fetch_size: 20
+        batch_size: 30
+        order_inserts: true
+        order_updates: true
     open-in-view: false
 
   # Flyway

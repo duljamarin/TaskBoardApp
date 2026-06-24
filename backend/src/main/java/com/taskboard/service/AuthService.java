@@ -9,6 +9,7 @@ import com.taskboard.model.entity.User;
 import com.taskboard.repository.RoleRepository;
 import com.taskboard.repository.UserRepository;
 import com.taskboard.security.JwtTokenProvider;
+import com.taskboard.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -160,14 +161,16 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Create authentication object for token generation
+        if (!user.getActive()) {
+            throw new IllegalArgumentException("User account is disabled");
+        }
+
+        // Create authentication with UserPrincipal (generateToken casts to UserPrincipal)
+        UserPrincipal principal = UserPrincipal.create(user);
         Authentication authentication = new UsernamePasswordAuthenticationToken(
-                user.getUsername(),
+                principal,
                 null,
-                user.getRoles().stream()
-                        .map(role -> new org.springframework.security.core.authority.SimpleGrantedAuthority(
-                                role.getName().name()))
-                        .toList()
+                principal.getAuthorities()
         );
 
         return tokenProvider.generateToken(authentication);

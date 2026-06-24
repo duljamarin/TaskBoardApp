@@ -55,5 +55,11 @@ public interface CardRepository extends JpaRepository<Card, Long> {
            "WHERE c.list.id = :listId AND c.position > :position")
     void decrementPositionsAfter(@Param("listId") Long listId, @Param("position") Integer position);
 
+    /**
+     * Lightweight lookup: get the board ID for a card without loading the full entity graph.
+     */
+    @Query("SELECT c.list.board.id FROM Card c WHERE c.id = :cardId")
+    Optional<Long> findBoardIdByCardId(@Param("cardId") Long cardId);
+
 }
 

@@ -41,45 +41,45 @@ public class EventPublisher {
 
     public void publishCardMoved(CardMovedEvent event) {
         try {
-            log.warn(">>> RABBITMQ PUBLISH: CardMovedEvent to exchange='{}' routingKey='{}' cardId={}",
-                    cardEventsExchange, cardMovedRoutingKey, event.getCardId());
+            log.info("Publishing CardMovedEvent: cardId={} exchange={} routingKey={}",
+                    event.getCardId(), cardEventsExchange, cardMovedRoutingKey);
             rabbitTemplate.convertAndSend(cardEventsExchange, cardMovedRoutingKey, event);
-            log.warn(">>> RABBITMQ PUBLISH SUCCESS: CardMovedEvent for card '{}'", event.getCardTitle());
+            log.debug("Published CardMovedEvent for card '{}'", event.getCardTitle());
         } catch (Exception e) {
-            log.error(">>> RABBITMQ PUBLISH FAILED: CardMovedEvent: {}", e.getMessage(), e);
+            log.error("Failed to publish CardMovedEvent: {}", e.getMessage(), e);
         }
     }
 
     public void publishCardCreated(CardCreatedEvent event) {
         try {
-            log.warn(">>> RABBITMQ PUBLISH: CardCreatedEvent to exchange='{}' routingKey='{}' cardId={} assignedTo={}",
-                    cardEventsExchange, cardCreatedRoutingKey, event.getCardId(), event.getAssignedToUserId());
+            log.info("Publishing CardCreatedEvent: cardId={} assignedTo={} exchange={} routingKey={}",
+                    event.getCardId(), event.getAssignedToUserId(), cardEventsExchange, cardCreatedRoutingKey);
             rabbitTemplate.convertAndSend(cardEventsExchange, cardCreatedRoutingKey, event);
-            log.warn(">>> RABBITMQ PUBLISH SUCCESS: CardCreatedEvent for card '{}'", event.getCardTitle());
+            log.debug("Published CardCreatedEvent for card '{}'", event.getCardTitle());
         } catch (Exception e) {
-            log.error(">>> RABBITMQ PUBLISH FAILED: CardCreatedEvent: {}", e.getMessage(), e);
+            log.error("Failed to publish CardCreatedEvent: {}", e.getMessage(), e);
         }
     }
 
     public void publishBoardCreated(BoardCreatedEvent event) {
         try {
-            log.warn(">>> RABBITMQ PUBLISH: BoardCreatedEvent to exchange='{}' routingKey='{}'",
+            log.info("Publishing BoardCreatedEvent: exchange={} routingKey={}",
                     boardEventsExchange, boardCreatedRoutingKey);
             rabbitTemplate.convertAndSend(boardEventsExchange, boardCreatedRoutingKey, event);
-            log.warn(">>> RABBITMQ PUBLISH SUCCESS: BoardCreatedEvent for board '{}'", event.getBoardName());
+            log.debug("Published BoardCreatedEvent for board '{}'", event.getBoardName());
         } catch (Exception e) {
-            log.error(">>> RABBITMQ PUBLISH FAILED: BoardCreatedEvent: {}", e.getMessage(), e);
+            log.error("Failed to publish BoardCreatedEvent: {}", e.getMessage(), e);
         }
     }
 
     public void publishCommentAdded(CommentAddedEvent event) {
         try {
-            log.warn(">>> RABBITMQ PUBLISH: CommentAddedEvent to exchange='{}' routingKey='{}'",
+            log.info("Publishing CommentAddedEvent: exchange={} routingKey={}",
                     cardEventsExchange, commentAddedRoutingKey);
             rabbitTemplate.convertAndSend(cardEventsExchange, commentAddedRoutingKey, event);
-            log.warn(">>> RABBITMQ PUBLISH SUCCESS: CommentAddedEvent on card '{}'", event.getCardTitle());
+            log.debug("Published CommentAddedEvent on card '{}'", event.getCardTitle());
         } catch (Exception e) {
-            log.error(">>> RABBITMQ PUBLISH FAILED: CommentAddedEvent: {}", e.getMessage(), e);
+            log.error("Failed to publish CommentAddedEvent: {}", e.getMessage(), e);
         }
     }
 }

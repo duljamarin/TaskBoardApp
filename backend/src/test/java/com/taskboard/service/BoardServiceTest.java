@@ -69,15 +69,28 @@ class BoardServiceTest {
     }
 
     @Test
-    void getAllBoards_ShouldReturnAllNonArchivedBoards() {
+    void getAllBoards_AsAdmin_ShouldReturnAllNonArchivedBoards() {
         List<Board> boards = Arrays.asList(testBoard);
         when(boardRepository.findAllByArchivedFalseWithLists()).thenReturn(boards);
 
-        List<BoardDTO> result = boardService.getAllBoards();
+        List<BoardDTO> result = boardService.getAllBoards(1L, true);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getName()).isEqualTo("Test Board");
         verify(boardRepository).findAllByArchivedFalseWithLists();
+    }
+
+    @Test
+    void getAllBoards_AsRegularUser_ShouldReturnOnlyOwnBoards() {
+        List<Board> boards = Arrays.asList(testBoard);
+        when(boardRepository.findByOwnerIdAndArchivedFalseWithLists(1L)).thenReturn(boards);
+
+        List<BoardDTO> result = boardService.getAllBoards(1L, false);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getName()).isEqualTo("Test Board");
+        verify(boardRepository).findByOwnerIdAndArchivedFalseWithLists(1L);
+        verify(boardRepository, never()).findAllByArchivedFalseWithLists();
     }
 
     @Test

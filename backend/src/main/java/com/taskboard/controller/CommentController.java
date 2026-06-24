@@ -29,7 +29,6 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class CommentController {
 
     private final CommentService commentService;
