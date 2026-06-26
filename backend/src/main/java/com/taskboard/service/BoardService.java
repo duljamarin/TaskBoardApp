@@ -5,6 +5,7 @@ import com.taskboard.messaging.producer.EventPublisher;
 import com.taskboard.model.dto.*;
 import com.taskboard.model.entity.*;
 import com.taskboard.model.event.BoardCreatedEvent;
+import com.taskboard.repository.BoardMemberRepository;
 import com.taskboard.repository.BoardRepository;
 import com.taskboard.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 public class BoardService {
 
     private final BoardRepository boardRepository;
+    private final BoardMemberRepository boardMemberRepository;
     private final UserRepository userRepository;
     private final EventPublisher eventPublisher;
     private final ActivityLogService activityLogService;
@@ -48,7 +50,7 @@ public class BoardService {
         // Admins/moderators see all boards; regular users see only their own
         List<Board> boards = isAdminOrModerator
                 ? boardRepository.findAllByArchivedFalseWithLists()
-                : boardRepository.findByOwnerIdAndArchivedFalseWithLists(userId);
+                : boardRepository.findByMemberUserIdAndArchivedFalseWithLists(userId);
 
         // If there are boards with lists, fetch all their cards in one query per board
         if (!boards.isEmpty()) {
@@ -110,6 +112,13 @@ public class BoardService {
 
         board = boardRepository.save(board);
         log.info("Created board with id: {} for user: {}", board.getId(), owner.getUsername());
+
+        // Auto-add creator as OWNER member
+        boardMemberRepository.save(BoardMember.builder()
+                .board(board)
+                .user(owner)
+                .role(BoardMemberRole.OWNER)
+                .build());
 
         // Log activity (DB write — stays inside transaction)
         logBoardCreated(board);

@@ -38,6 +38,15 @@ export interface RoleAssignmentRequest {
 }
 
 // Board types
+export interface BoardMember {
+  id: number;
+  userId: number;
+  username: string;
+  fullName?: string;
+  role: 'OWNER' | 'EDITOR' | 'MEMBER';
+  createdAt: string;
+}
+
 export interface Board {
   id: number;
   name: string;
@@ -47,6 +56,7 @@ export interface Board {
   ownerUsername: string;
   archived: boolean;
   lists: List[];
+  members: BoardMember[];
   createdAt: string;
   updatedAt: string;
 }

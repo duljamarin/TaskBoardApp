@@ -55,6 +55,25 @@ services:
     networks:
       - taskboard-network
 
+  flyway:
+    image: flyway/flyway:10-alpine
+    container_name: taskboard-flyway
+    command: migrate
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/taskboard
+      FLYWAY_USER: taskboard
+      FLYWAY_PASSWORD: taskboard123
+      FLYWAY_BASELINE_ON_MIGRATE: "true"
+      FLYWAY_BASELINE_VERSION: 12
+      FLYWAY_VALIDATE_ON_MIGRATE: "false"
+    volumes:
+      - ./src/main/resources/db/migration:/flyway/sql
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - taskboard-network
+
 volumes:
   postgres_data:
     name: taskboard-postgres-data

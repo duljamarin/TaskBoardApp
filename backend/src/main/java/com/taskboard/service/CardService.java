@@ -8,6 +8,7 @@ import com.taskboard.model.dto.CardMoveDTO;
 import com.taskboard.model.dto.CreateCardRequest;
 import com.taskboard.model.entity.*;
 import com.taskboard.model.event.CardCreatedEvent;
+import com.taskboard.repository.BoardMemberRepository;
 import com.taskboard.repository.CardRepository;
 import com.taskboard.repository.ListRepository;
 import com.taskboard.repository.UserRepository;
@@ -41,6 +42,7 @@ public class CardService {
     private final CardRepository cardRepository;
     private final ListRepository listRepository;
     private final UserRepository userRepository;
+    private final BoardMemberRepository boardMemberRepository;
     private final EventPublisher eventPublisher;
     private final ActivityLogService activityLogService;
     private final SimpMessagingTemplate messagingTemplate;
@@ -117,6 +119,11 @@ public class CardService {
         card = cardRepository.save(card);
         log.info("Created card with id: {} by user: {}", card.getId(), creator.getUsername());
 
+        // Auto-add assignee as board member
+        if (card.getAssignedTo() != null) {
+            ensureBoardMembership(card.getBoard(), card.getAssignedTo());
+        }
+
         // Log activity inside transaction (DB write)
         logCardCreated(card, creator);
 
@@ -162,6 +169,11 @@ public class CardService {
 
         card = cardRepository.save(card);
         log.info("Updated card: {}", card.getTitle());
+
+        // Auto-add assignee as board member
+        if (card.getAssignedTo() != null) {
+            ensureBoardMembership(card.getBoard(), card.getAssignedTo());
+        }
 
         // Log activity inside transaction (DB write)
         Map<String, Object> metadata = new HashMap<>();
@@ -270,6 +282,20 @@ public class CardService {
             log.debug("Sent WebSocket update for board {}: {}", boardId, eventType);
         } catch (Exception e) {
             log.error("Failed to send WebSocket update: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Ensure the user is a member of the board. Adds them as MEMBER if not already present.
+     */
+    private void ensureBoardMembership(Board board, User user) {
+        if (!boardMemberRepository.existsByBoardIdAndUserId(board.getId(), user.getId())) {
+            boardMemberRepository.save(BoardMember.builder()
+                    .board(board)
+                    .user(user)
+                    .role(BoardMemberRole.MEMBER)
+                    .build());
+            log.debug("Auto-added user {} as member of board {}", user.getUsername(), board.getId());
         }
     }
 

@@ -2,6 +2,7 @@ package com.taskboard.security;
 
 import com.taskboard.exception.ResourceNotFoundException;
 import com.taskboard.model.entity.Comment;
+import com.taskboard.repository.BoardMemberRepository;
 import com.taskboard.repository.BoardRepository;
 import com.taskboard.repository.CardRepository;
 import com.taskboard.repository.CommentRepository;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthorizationService {
 
     private final BoardRepository boardRepository;
+    private final BoardMemberRepository boardMemberRepository;
     private final ListRepository listRepository;
     private final CardRepository cardRepository;
     private final CommentRepository commentRepository;
@@ -54,7 +56,7 @@ public class AuthorizationService {
 
     /**
      * Check if the current user can access a board.
-     * Uses a lightweight query that only fetches the owner ID.
+     * Uses a membership check against board_members.
      */
     @Transactional(readOnly = true)
     public boolean canAccessBoard(Long boardId) {
@@ -153,9 +155,7 @@ public class AuthorizationService {
                 || user.getAuthorities().contains(ROLE_MODERATOR)) {
             return true;
         }
-        Long ownerId = boardRepository.findOwnerIdByBoardId(boardId)
-                .orElseThrow(() -> new ResourceNotFoundException("Board", "id", boardId));
-        return ownerId.equals(user.getId());
+        return boardMemberRepository.existsByBoardIdAndUserId(boardId, user.getId());
     }
 
     public void requireBoardAccess(Long boardId) {
@@ -178,8 +178,7 @@ public class AuthorizationService {
 
     /**
      * Core permission check: admin/moderator pass immediately,
-     * otherwise compare the current user's ID against the board owner ID.
-     * Only fetches a single Long column from the database.
+     * otherwise check board_members for the current user.
      */
     private boolean hasPermissionOnBoard(Long boardId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -191,8 +190,6 @@ public class AuthorizationService {
             return true;
         }
         UserPrincipal user = (UserPrincipal) auth.getPrincipal();
-        Long ownerId = boardRepository.findOwnerIdByBoardId(boardId)
-                .orElseThrow(() -> new ResourceNotFoundException("Board", "id", boardId));
-        return ownerId.equals(user.getId());
+        return boardMemberRepository.existsByBoardIdAndUserId(boardId, user.getId());
     }
 }

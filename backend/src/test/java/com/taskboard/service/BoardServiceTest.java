@@ -6,6 +6,7 @@ import com.taskboard.model.dto.BoardDTO;
 import com.taskboard.model.dto.CreateBoardRequest;
 import com.taskboard.model.entity.Board;
 import com.taskboard.model.entity.User;
+import com.taskboard.repository.BoardMemberRepository;
 import com.taskboard.repository.BoardRepository;
 import com.taskboard.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +31,9 @@ class BoardServiceTest {
 
     @Mock
     private BoardRepository boardRepository;
+
+    @Mock
+    private BoardMemberRepository boardMemberRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -81,15 +85,15 @@ class BoardServiceTest {
     }
 
     @Test
-    void getAllBoards_AsRegularUser_ShouldReturnOnlyOwnBoards() {
+    void getAllBoards_AsRegularUser_ShouldReturnOnlyMemberBoards() {
         List<Board> boards = Arrays.asList(testBoard);
-        when(boardRepository.findByOwnerIdAndArchivedFalseWithLists(1L)).thenReturn(boards);
+        when(boardRepository.findByMemberUserIdAndArchivedFalseWithLists(1L)).thenReturn(boards);
 
         List<BoardDTO> result = boardService.getAllBoards(1L, false);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getName()).isEqualTo("Test Board");
-        verify(boardRepository).findByOwnerIdAndArchivedFalseWithLists(1L);
+        verify(boardRepository).findByMemberUserIdAndArchivedFalseWithLists(1L);
         verify(boardRepository, never()).findAllByArchivedFalseWithLists();
     }
 

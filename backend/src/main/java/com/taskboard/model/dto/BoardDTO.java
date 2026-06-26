@@ -30,6 +30,9 @@ public class BoardDTO implements Serializable {
     @Builder.Default
     private List<ListDTO> lists = new ArrayList<>();
 
+    @Builder.Default
+    private List<BoardMemberDTO> members = new ArrayList<>();
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

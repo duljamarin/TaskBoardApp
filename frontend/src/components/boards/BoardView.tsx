@@ -20,6 +20,7 @@ import { Card } from '../../types';
 import { websocketService, WebSocketMessage } from '../../services/websocket';
 import { LabelManager } from '../labels/LabelManager';
 import { LabelBadge } from '../labels/LabelBadge';
+import { BoardMembersModal } from './BoardMembersModal';
 
 export const BoardView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +32,7 @@ export const BoardView: React.FC = () => {
   const [wsConnected, setWsConnected] = useState(false);
   const [realtimeUpdates, setRealtimeUpdates] = useState<string[]>([]);
   const [showLabelManager, setShowLabelManager] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
   const [filterLabelIds, setFilterLabelIds] = useState<Set<number>>(new Set());
 
   const sensors = useSensors(
@@ -325,11 +327,37 @@ export const BoardView: React.FC = () => {
                   {wsConnected ? 'Live' : 'Offline'}
                 </span>
               </div>
+              {/* Member avatars */}
+              {currentBoard.members && currentBoard.members.length > 0 && (
+                <button
+                  onClick={() => setShowMembers(true)}
+                  className="flex -space-x-2 hover:opacity-80 transition-opacity"
+                  title={`${currentBoard.members.length} member${currentBoard.members.length !== 1 ? 's' : ''}`}
+                >
+                  {currentBoard.members.slice(0, 4).map((member) => (
+                    <div
+                      key={member.userId}
+                      className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-semibold border-2 border-white"
+                      title={member.fullName || member.username}
+                    >
+                      {member.username.charAt(0).toUpperCase()}
+                    </div>
+                  ))}
+                  {currentBoard.members.length > 4 && (
+                    <div className="w-8 h-8 rounded-full bg-surface-200 text-surface-600 flex items-center justify-center text-xs font-semibold border-2 border-white">
+                      +{currentBoard.members.length - 4}
+                    </div>
+                  )}
+                </button>
+              )}
+              <Button variant="secondary" onClick={() => setShowMembers(true)}>
+                Members
+              </Button>
               <Button variant="danger" onClick={handleDeleteBoard}>
                 Delete Board
               </Button>
               <Button variant="secondary" onClick={() => setShowLabelManager(true)}>
-                🏷 Labels
+                Labels
               </Button>
             </div>
           </div>
@@ -455,6 +483,18 @@ export const BoardView: React.FC = () => {
           if (id) fetchBoard(parseInt(id, 10));
         }}
         boardId={currentBoard.id}
+      />
+
+      {/* Board Members Modal */}
+      <BoardMembersModal
+        isOpen={showMembers}
+        onClose={() => {
+          setShowMembers(false);
+          // Refresh board to pick up membership changes
+          if (id) fetchBoard(parseInt(id, 10));
+        }}
+        boardId={currentBoard.id}
+        ownerId={currentBoard.ownerId}
       />
     </div>
   );

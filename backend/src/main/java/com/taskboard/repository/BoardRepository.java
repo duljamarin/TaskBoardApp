@@ -39,6 +39,16 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     List<Board> findByOwnerIdAndArchivedFalseWithLists(@Param("ownerId") Long ownerId);
 
     /**
+     * Find non-archived boards where the user is a member, with lists eagerly loaded.
+     */
+    @Query("SELECT DISTINCT b FROM Board b " +
+           "LEFT JOIN FETCH b.lists " +
+           "JOIN BoardMember bm ON bm.board = b " +
+           "WHERE bm.user.id = :userId AND b.archived = false " +
+           "ORDER BY b.id DESC")
+    List<Board> findByMemberUserIdAndArchivedFalseWithLists(@Param("userId") Long userId);
+
+    /**
      * Find a specific non-archived board by ID.
      */
     Optional<Board> findByIdAndArchivedFalse(Long id);

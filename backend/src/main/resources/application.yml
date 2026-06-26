@@ -40,6 +40,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+    baseline-version: 12
     locations: classpath:db/migration
     validate-on-migrate: false
 

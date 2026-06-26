@@ -1,5 +1,5 @@
 import api from './axios';
-import { Board, CreateBoardRequest } from '../types';
+import { Board, BoardMember, CreateBoardRequest } from '../types';
 
 export const boardApi = {
   getAll: async (): Promise<Board[]> => {
@@ -24,6 +24,20 @@ export const boardApi = {
 
   delete: async (id: number): Promise<void> => {
     await api.delete(`/boards/${id}`);
+  },
+
+  getMembers: async (boardId: number): Promise<BoardMember[]> => {
+    const response = await api.get<BoardMember[]>(`/boards/${boardId}/members`);
+    return response.data;
+  },
+
+  addMember: async (boardId: number, userId: number, role: string = 'MEMBER'): Promise<BoardMember> => {
+    const response = await api.post<BoardMember>(`/boards/${boardId}/members/${userId}?role=${role}`);
+    return response.data;
+  },
+
+  removeMember: async (boardId: number, userId: number): Promise<void> => {
+    await api.delete(`/boards/${boardId}/members/${userId}`);
   },
 };
 

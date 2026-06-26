@@ -6,6 +6,7 @@ import com.taskboard.model.dto.CreateBoardRequest;
 import com.taskboard.security.AuthorizationService;
 import com.taskboard.security.WithMockUserPrincipal;
 import com.taskboard.service.ActivityLogService;
+import com.taskboard.service.BoardMemberService;
 import com.taskboard.service.BoardService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,9 @@ class BoardControllerTest {
 
     @MockitoBean
     private ActivityLogService activityLogService;
+
+    @MockitoBean
+    private BoardMemberService boardMemberService;
 
     @MockitoBean
     private AuthorizationService authorizationService;
