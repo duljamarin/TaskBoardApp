@@ -1,7 +1,6 @@
 package com.taskboard.service;
 
 import com.taskboard.exception.ResourceNotFoundException;
-import com.taskboard.messaging.producer.EventPublisher;
 import com.taskboard.model.dto.BoardDTO;
 import com.taskboard.model.dto.CreateBoardRequest;
 import com.taskboard.model.entity.Board;
@@ -9,6 +8,7 @@ import com.taskboard.model.entity.User;
 import com.taskboard.repository.BoardMemberRepository;
 import com.taskboard.repository.BoardRepository;
 import com.taskboard.repository.UserRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,10 +39,10 @@ class BoardServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private EventPublisher eventPublisher;
+    private ActivityLogService activityLogService;
 
     @Mock
-    private ActivityLogService activityLogService;
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private BoardService boardService;
@@ -132,7 +132,7 @@ class BoardServiceTest {
         assertThat(result).isNotNull();
         verify(userRepository).findById(1L);
         verify(boardRepository).save(any(Board.class));
-        verify(eventPublisher).publishBoardCreated(any());
+        verify(eventPublisher).publishEvent(any());
     }
 
     @Test

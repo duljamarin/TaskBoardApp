@@ -1,6 +1,7 @@
 package com.taskboard.security;
 
 import com.taskboard.exception.ResourceNotFoundException;
+import com.taskboard.model.entity.BoardMemberRole;
 import com.taskboard.model.entity.Comment;
 import com.taskboard.repository.BoardMemberRepository;
 import com.taskboard.repository.BoardRepository;
@@ -16,6 +17,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 /**
  * Service for authorization checks.
@@ -55,26 +58,34 @@ public class AuthorizationService {
     }
 
     /**
-     * Check if the current user can access a board.
-     * Uses a membership check against board_members.
+     * Check if the current user can access (read) a board.
+     * Any board member can access.
      */
     @Transactional(readOnly = true)
     public boolean canAccessBoard(Long boardId) {
         return hasPermissionOnBoard(boardId);
     }
 
+    /**
+     * Check if the current user can modify board content (lists, cards).
+     * Requires OWNER or EDITOR role.
+     */
     @Transactional(readOnly = true)
     public boolean canModifyBoard(Long boardId) {
-        return hasPermissionOnBoard(boardId);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean canDeleteBoard(Long boardId) {
-        return hasPermissionOnBoard(boardId);
+        return hasRoleOnBoard(boardId, BoardMemberRole.EDITOR);
     }
 
     /**
-     * Check if user can access a list — resolves list → board with a single scalar query.
+     * Check if the current user can delete (archive) a board.
+     * Requires OWNER role.
+     */
+    @Transactional(readOnly = true)
+    public boolean canDeleteBoard(Long boardId) {
+        return hasRoleOnBoard(boardId, BoardMemberRole.OWNER);
+    }
+
+    /**
+     * Check if user can access a list — resolves list -> board with a single scalar query.
      */
     @Transactional(readOnly = true)
     public boolean canAccessList(Long listId) {
@@ -83,15 +94,18 @@ public class AuthorizationService {
         return hasPermissionOnBoard(boardId);
     }
 
+    /**
+     * Check if user can modify a list — requires EDITOR or OWNER role.
+     */
     @Transactional(readOnly = true)
     public boolean canModifyList(Long listId) {
         Long boardId = listRepository.findBoardIdByListId(listId)
                 .orElseThrow(() -> new ResourceNotFoundException("List", "id", listId));
-        return hasPermissionOnBoard(boardId);
+        return hasRoleOnBoard(boardId, BoardMemberRole.EDITOR);
     }
 
     /**
-     * Check if user can access a card — resolves card → board with a single scalar query.
+     * Check if user can access a card — resolves card -> board with a single scalar query.
      */
     @Transactional(readOnly = true)
     public boolean canAccessCard(Long cardId) {
@@ -100,18 +114,24 @@ public class AuthorizationService {
         return hasPermissionOnBoard(boardId);
     }
 
+    /**
+     * Check if user can modify a card — requires EDITOR or OWNER role.
+     */
     @Transactional(readOnly = true)
     public boolean canModifyCard(Long cardId) {
         Long boardId = cardRepository.findBoardIdByCardId(cardId)
                 .orElseThrow(() -> new ResourceNotFoundException("Card", "id", cardId));
-        return hasPermissionOnBoard(boardId);
+        return hasRoleOnBoard(boardId, BoardMemberRole.EDITOR);
     }
 
+    /**
+     * Check if user can modify a label — requires EDITOR or OWNER role.
+     */
     @Transactional(readOnly = true)
     public boolean canModifyLabel(Long labelId) {
         var label = labelRepository.findByIdWithBoard(labelId)
                 .orElseThrow(() -> new ResourceNotFoundException("Label", "id", labelId));
-        return hasPermissionOnBoard(label.getBoard().getId());
+        return hasRoleOnBoard(label.getBoard().getId(), BoardMemberRole.EDITOR);
     }
 
     @Transactional(readOnly = true)
@@ -191,5 +211,28 @@ public class AuthorizationService {
         }
         UserPrincipal user = (UserPrincipal) auth.getPrincipal();
         return boardMemberRepository.existsByBoardIdAndUserId(boardId, user.getId());
+    }
+
+    /**
+     * Check if the current user has at least the given role on the board.
+     * Role hierarchy: OWNER > EDITOR > MEMBER.
+     * Admin/moderator bypass all checks.
+     */
+    private boolean hasRoleOnBoard(Long boardId, BoardMemberRole minimumRole) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return false;
+        }
+        if (auth.getAuthorities().contains(ROLE_ADMIN)
+                || auth.getAuthorities().contains(ROLE_MODERATOR)) {
+            return true;
+        }
+        UserPrincipal user = (UserPrincipal) auth.getPrincipal();
+        Optional<BoardMemberRole> role = boardMemberRepository.findRoleByBoardIdAndUserId(boardId, user.getId());
+        return role.map(r -> meetsMinimumRole(r, minimumRole)).orElse(false);
+    }
+
+    private static boolean meetsMinimumRole(BoardMemberRole actual, BoardMemberRole required) {
+        return actual.ordinal() <= required.ordinal();
     }
 }

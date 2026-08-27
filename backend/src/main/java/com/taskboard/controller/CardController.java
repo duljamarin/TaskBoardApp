@@ -3,6 +3,7 @@ package com.taskboard.controller;
 import com.taskboard.model.dto.CardDTO;
 import com.taskboard.model.dto.CardMoveDTO;
 import com.taskboard.model.dto.CreateCardRequest;
+import com.taskboard.model.dto.UpdateCardRequest;
 import com.taskboard.security.CurrentUser;
 import com.taskboard.security.UserPrincipal;
 import com.taskboard.service.CardService;
@@ -77,7 +78,7 @@ public class CardController {
     @PreAuthorize("@authorizationService.canModifyCard(#id)")
     public ResponseEntity<CardDTO> updateCard(
             @PathVariable Long id,
-            @Valid @RequestBody CreateCardRequest request,
+            @Valid @RequestBody UpdateCardRequest request,
             @CurrentUser UserPrincipal currentUser) {
         log.info("PUT /api/v1/cards/{} - User: {} - Updating card", id, currentUser.getUsername());
         CardDTO card = cardService.updateCard(id, request);

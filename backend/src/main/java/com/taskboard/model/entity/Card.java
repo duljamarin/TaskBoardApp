@@ -65,6 +65,9 @@ public class Card implements Serializable {
     @Column(name = "due_date")
     private LocalDateTime dueDate;
 
+    @Version
+    private Long version;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

@@ -1,23 +1,20 @@
 package com.taskboard.service;
 
 import com.taskboard.exception.ResourceNotFoundException;
-import com.taskboard.messaging.producer.EventPublisher;
 import com.taskboard.model.dto.*;
 import com.taskboard.model.entity.*;
-import com.taskboard.model.event.BoardCreatedEvent;
 import com.taskboard.repository.BoardMemberRepository;
 import com.taskboard.repository.BoardRepository;
 import com.taskboard.repository.UserRepository;
+import com.taskboard.service.event.BoardCreatedAppEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import static com.taskboard.service.TransactionHooks.afterCommit;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,65 +32,45 @@ public class BoardService {
     private final BoardRepository boardRepository;
     private final BoardMemberRepository boardMemberRepository;
     private final UserRepository userRepository;
-    private final EventPublisher eventPublisher;
     private final ActivityLogService activityLogService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    /**
-     * Get non-archived boards visible to the given user.
-     * Regular users see only their own boards; admins/moderators see all.
-     */
     @Cacheable(value = "boards", key = "'user:' + #userId")
     @Transactional(readOnly = true)
     public List<BoardDTO> getAllBoards(Long userId, boolean isAdminOrModerator) {
         log.debug("Fetching boards for user {} (admin/mod: {})", userId, isAdminOrModerator);
 
-        // Admins/moderators see all boards; regular users see only their own
         List<Board> boards = isAdminOrModerator
                 ? boardRepository.findAllByArchivedFalseWithLists()
                 : boardRepository.findByMemberUserIdAndArchivedFalseWithLists(userId);
 
-        // If there are boards with lists, fetch all their cards in one query per board
+        // Batch-fetch cards for ALL boards in one query (fixes N+1)
         if (!boards.isEmpty()) {
-            for (Board board : boards) {
-                if (!board.getLists().isEmpty()) {
-                    // This fetches cards for all lists of this board
-                    boardRepository.findListsWithCardsByBoardId(board.getId());
-                }
-            }
+            List<Long> boardIds = boards.stream().map(Board::getId).collect(Collectors.toList());
+            boardRepository.findListsWithCardsByBoardIds(boardIds);
         }
 
-        // Convert to DTOs with full details
         return boards.stream()
                 .map(this::convertToDTOWithDetails)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get a board by ID with all lists and cards.
-     * Uses two queries to avoid MultipleBagFetchException.
-     */
     @Cacheable(value = "boards", key = "#id")
     @Transactional(readOnly = true)
     public BoardDTO getBoardById(Long id) {
         log.debug("Fetching board with id: {}", id);
 
-        // First query: fetch board with lists
         Board board = boardRepository.findByIdWithListsAndCards(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Board", "id", id));
 
-        // Second query: fetch all cards for the lists (this initializes the cards collection)
         if (!board.getLists().isEmpty()) {
             boardRepository.findListsWithCardsByBoardId(id);
-            // Third query: fetch labels for all cards in this board
             boardRepository.findCardsWithLabelsByBoardId(id);
         }
 
         return convertToDTOWithDetails(board);
     }
 
-    /**
-     * Create a new board with the specified user as owner.
-     */
     @CacheEvict(value = "boards", allEntries = true)
     @Transactional
     public BoardDTO createBoard(CreateBoardRequest request, Long ownerId) {
@@ -113,30 +90,27 @@ public class BoardService {
         board = boardRepository.save(board);
         log.info("Created board with id: {} for user: {}", board.getId(), owner.getUsername());
 
-        // Auto-add creator as OWNER member
         boardMemberRepository.save(BoardMember.builder()
                 .board(board)
                 .user(owner)
                 .role(BoardMemberRole.OWNER)
                 .build());
 
-        // Log activity (DB write — stays inside transaction)
         logBoardCreated(board);
 
-        // Defer RabbitMQ publish to after DB commit — prevents ghost events
-        final Board savedBoard = board;
-        afterCommit(() -> publishBoardCreatedEvent(savedBoard));
+        eventPublisher.publishEvent(BoardCreatedAppEvent.builder()
+                .boardId(board.getId())
+                .boardName(board.getName())
+                .description(board.getDescription())
+                .color(board.getColor())
+                .createdByUserId(owner.getId())
+                .createdByUsername(owner.getUsername())
+                .build());
 
         return convertToDTO(board);
     }
 
-    /**
-     * Update an existing board.
-     */
-    @Caching(evict = {
-        @CacheEvict(value = "boards", key = "'all'"),
-        @CacheEvict(value = "boards", key = "#id")
-    })
+    @CacheEvict(value = "boards", allEntries = true)
     @Transactional
     public BoardDTO updateBoard(Long id, CreateBoardRequest request) {
         log.info("Updating board with id: {}", id);
@@ -158,7 +132,6 @@ public class BoardService {
         board = boardRepository.save(board);
         log.info("Updated board: {}", board.getName());
 
-        // Log activity
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("board_name", board.getName());
         activityLogService.logActivity(board, board.getOwner(), ActivityType.BOARD_UPDATED,
@@ -167,13 +140,7 @@ public class BoardService {
         return convertToDTO(board);
     }
 
-    /**
-     * Soft delete (archive) a board.
-     */
-    @Caching(evict = {
-        @CacheEvict(value = "boards", key = "'all'"),
-        @CacheEvict(value = "boards", key = "#id")
-    })
+    @CacheEvict(value = "boards", allEntries = true)
     @Transactional
     public void deleteBoard(Long id) {
         log.info("Archiving board with id: {}", id);
@@ -186,33 +153,12 @@ public class BoardService {
 
         log.info("Archived board: {}", board.getName());
 
-        // Log activity
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("board_name", board.getName());
         activityLogService.logActivity(board, board.getOwner(), ActivityType.BOARD_ARCHIVED,
                 String.format("Board '%s' was archived", board.getName()), metadata);
     }
 
-    /**
-     * Publish board created event to RabbitMQ.
-     */
-    private void publishBoardCreatedEvent(Board board) {
-        BoardCreatedEvent event = BoardCreatedEvent.builder()
-                .boardId(board.getId())
-                .boardName(board.getName())
-                .description(board.getDescription())
-                .color(board.getColor())
-                .createdByUserId(board.getOwner() != null ? board.getOwner().getId() : null)
-                .createdByUsername(board.getOwner() != null ? board.getOwner().getUsername() : "system")
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        eventPublisher.publishBoardCreated(event);
-    }
-
-    /**
-     * Log board creation activity.
-     */
     private void logBoardCreated(Board board) {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("board_name", board.getName());
@@ -222,9 +168,6 @@ public class BoardService {
                 String.format("Board '%s' was created", board.getName()), metadata);
     }
 
-    /**
-     * Convert Board entity to DTO (basic info only).
-     */
     private BoardDTO convertToDTO(Board board) {
         return BoardDTO.builder()
                 .id(board.getId())
@@ -239,9 +182,6 @@ public class BoardService {
                 .build();
     }
 
-    /**
-     * Convert Board entity to DTO with lists and cards.
-     */
     private BoardDTO convertToDTOWithDetails(Board board) {
         BoardDTO dto = convertToDTO(board);
 
@@ -253,9 +193,6 @@ public class BoardService {
         return dto;
     }
 
-    /**
-     * Convert BoardList entity to DTO with cards.
-     */
     private ListDTO convertListToDTO(BoardList list) {
         List<CardDTO> cardDTOs = list.getCards().stream()
                 .map(CardMapper::toDTO)
@@ -272,4 +209,3 @@ public class BoardService {
                 .build();
     }
 }
-

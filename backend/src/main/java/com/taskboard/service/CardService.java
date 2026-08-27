@@ -1,29 +1,26 @@
 package com.taskboard.service;
 
 import com.taskboard.exception.ResourceNotFoundException;
-import com.taskboard.messaging.producer.EventPublisher;
 import com.taskboard.model.dto.CardDTO;
 import com.taskboard.model.dto.CardMapper;
 import com.taskboard.model.dto.CardMoveDTO;
 import com.taskboard.model.dto.CreateCardRequest;
+import com.taskboard.model.dto.UpdateCardRequest;
 import com.taskboard.model.entity.*;
-import com.taskboard.model.event.CardCreatedEvent;
 import com.taskboard.repository.BoardMemberRepository;
 import com.taskboard.repository.CardRepository;
 import com.taskboard.repository.ListRepository;
 import com.taskboard.repository.UserRepository;
+import com.taskboard.service.event.CardCreatedAppEvent;
+import com.taskboard.service.event.CardDeletedAppEvent;
+import com.taskboard.service.event.CardUpdatedAppEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Caching;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import static com.taskboard.service.TransactionHooks.afterCommit;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,8 +28,8 @@ import java.util.stream.Collectors;
 
 /**
  * Service for card operations.
- * Handles CRUD operations with event publishing and real-time updates.
- * Card movement logic has been extracted to CardMovementService.
+ * Publishes Spring application events for post-commit side effects (WebSocket, RabbitMQ).
+ * Card movement logic is in CardMovementService.
  */
 @Slf4j
 @Service
@@ -43,15 +40,10 @@ public class CardService {
     private final ListRepository listRepository;
     private final UserRepository userRepository;
     private final BoardMemberRepository boardMemberRepository;
-    private final EventPublisher eventPublisher;
     private final ActivityLogService activityLogService;
-    private final SimpMessagingTemplate messagingTemplate;
     private final CardMovementService cardMovementService;
-    private final CacheManager cacheManager;
+    private final ApplicationEventPublisher eventPublisher;
 
-    /**
-     * Get all cards in a list.
-     */
     @Transactional(readOnly = true)
     public List<CardDTO> getCardsByListId(Long listId) {
         log.debug("Fetching cards for list: {}", listId);
@@ -60,9 +52,6 @@ public class CardService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get a card by ID.
-     */
     @Transactional(readOnly = true)
     public CardDTO getCardById(Long id) {
         log.debug("Fetching card with id: {}", id);
@@ -71,13 +60,7 @@ public class CardService {
         return CardMapper.toDTO(card);
     }
 
-    /**
-     * Create a new card.
-     */
-    @Caching(evict = {
-        @CacheEvict(value = "boards", key = "'all'"),
-        @CacheEvict(value = "boards", key = "#result.boardId")
-    })
+    @CacheEvict(value = "boards", allEntries = true)
     @Transactional
     public CardDTO createCard(CreateCardRequest request, Long userId) {
         log.info("Creating new card: {} in list: {} by user: {}", request.getTitle(), request.getListId(), userId);
@@ -90,7 +73,6 @@ public class CardService {
             assignedTo = userRepository.findById(request.getAssignedToId()).orElse(null);
         }
 
-        // Get the user who is creating the card for activity logging
         User creator = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
@@ -98,7 +80,6 @@ public class CardService {
         listRepository.findByIdForUpdate(request.getListId())
                 .orElseThrow(() -> new ResourceNotFoundException("List", "id", request.getListId()));
 
-        // Determine position
         Integer position = request.getPosition();
         if (position == null) {
             position = cardRepository.findMaxPositionByListId(request.getListId()) + 1;
@@ -119,35 +100,34 @@ public class CardService {
         card = cardRepository.save(card);
         log.info("Created card with id: {} by user: {}", card.getId(), creator.getUsername());
 
-        // Auto-add assignee as board member
         if (card.getAssignedTo() != null) {
             ensureBoardMembership(card.getBoard(), card.getAssignedTo());
         }
 
-        // Log activity inside transaction (DB write)
         logCardCreated(card, creator);
 
-        // Defer RabbitMQ + WebSocket to after transaction commits
-        final Card savedCard = card;
-        final Long creatorId = userId;
-        final String creatorName = creator.getUsername();
-        afterCommit(() -> {
-            publishCardCreatedEvent(savedCard, creatorId, creatorName);
-            sendWebSocketUpdate(savedCard.getBoard().getId(), "CARD_CREATED", CardMapper.toDTO(savedCard));
-        });
+        CardDTO cardDTO = CardMapper.toDTO(card);
+        eventPublisher.publishEvent(CardCreatedAppEvent.builder()
+                .cardId(card.getId())
+                .cardTitle(card.getTitle())
+                .boardId(card.getBoard().getId())
+                .boardName(card.getBoard().getName())
+                .listId(card.getList().getId())
+                .listName(card.getList().getName())
+                .priority(card.getPriority())
+                .dueDate(card.getDueDate())
+                .assignedToUserId(card.getAssignedTo() != null ? card.getAssignedTo().getId() : null)
+                .createdByUserId(userId)
+                .createdByUsername(creator.getUsername())
+                .cardDTO(cardDTO)
+                .build());
 
-        return CardMapper.toDTO(card);
+        return cardDTO;
     }
 
-    /**
-     * Update a card.
-     */
-    @Caching(evict = {
-        @CacheEvict(value = "boards", key = "'all'"),
-        @CacheEvict(value = "boards", key = "#result.boardId")
-    })
+    @CacheEvict(value = "boards", allEntries = true)
     @Transactional
-    public CardDTO updateCard(Long id, CreateCardRequest request) {
+    public CardDTO updateCard(Long id, UpdateCardRequest request) {
         log.info("Updating card with id: {}", id);
 
         Card card = cardRepository.findByIdWithDetails(id)
@@ -170,36 +150,30 @@ public class CardService {
         card = cardRepository.save(card);
         log.info("Updated card: {}", card.getTitle());
 
-        // Auto-add assignee as board member
         if (card.getAssignedTo() != null) {
             ensureBoardMembership(card.getBoard(), card.getAssignedTo());
         }
 
-        // Log activity inside transaction (DB write)
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("card_title", card.getTitle());
         activityLogService.logActivity(card.getBoard(), card.getAssignedTo(), ActivityType.CARD_UPDATED,
                 String.format("Card '%s' was updated", card.getTitle()), metadata);
 
-        // Defer WebSocket to after transaction commits
-        final Card updatedCard = card;
-        afterCommit(() -> sendWebSocketUpdate(updatedCard.getBoard().getId(), "CARD_UPDATED", CardMapper.toDTO(updatedCard)));
+        CardDTO cardDTO = CardMapper.toDTO(card);
+        eventPublisher.publishEvent(CardUpdatedAppEvent.builder()
+                .boardId(card.getBoard().getId())
+                .cardDTO(cardDTO)
+                .build());
 
-        return CardMapper.toDTO(card);
+        return cardDTO;
     }
 
-    /**
-     * Move a card to a different list or position.
-     * Delegates to CardMovementService which handles the complex movement logic.
-     */
     public CardDTO moveCard(Long id, CardMoveDTO moveDTO, Long userId) {
         log.info("Delegating card move operation to CardMovementService");
         return cardMovementService.moveCard(id, moveDTO, userId);
     }
 
-    /**
-     * Delete a card.
-     */
+    @CacheEvict(value = "boards", allEntries = true)
     @Transactional
     public void deleteCard(Long id) {
         log.info("Deleting card with id: {}", id);
@@ -214,80 +188,22 @@ public class CardService {
         Long boardId = board.getId();
 
         cardRepository.delete(card);
-
-        // Reorder remaining cards
         cardRepository.decrementPositionsAfter(listId, deletedPosition);
 
         log.info("Deleted card: {}", cardTitle);
 
-        // Evict only the affected board from cache
-        Cache boardsCache = cacheManager.getCache("boards");
-        if (boardsCache != null) {
-            boardsCache.evict("all");
-            boardsCache.evict(boardId);
-        }
-
-        // Log activity (DB write — stays inside transaction)
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("card_title", cardTitle);
         activityLogService.logActivity(board, null, ActivityType.CARD_DELETED,
                 String.format("Card '%s' was deleted", cardTitle), metadata);
 
-        final Long boardIdFinal = boardId;
-        final Long cardIdFinal = id;
-        final Long listIdFinal = listId;
-        afterCommit(() -> {
-            Map<String, Object> deleteData = new HashMap<>();
-            deleteData.put("cardId", cardIdFinal);
-            deleteData.put("listId", listIdFinal);
-            sendWebSocketUpdate(boardIdFinal, "CARD_DELETED", deleteData);
-        });
+        eventPublisher.publishEvent(CardDeletedAppEvent.builder()
+                .boardId(boardId)
+                .cardId(id)
+                .listId(listId)
+                .build());
     }
 
-    /**
-     * Publish card created event.
-     */
-    private void publishCardCreatedEvent(Card card, Long creatorUserId, String creatorUsername) {
-        CardCreatedEvent event = CardCreatedEvent.builder()
-                .cardId(card.getId())
-                .cardTitle(card.getTitle())
-                .boardId(card.getBoard().getId())
-                .boardName(card.getBoard().getName())
-                .listId(card.getList().getId())
-                .listName(card.getList().getName())
-                .priority(card.getPriority())
-                .dueDate(card.getDueDate())
-                .assignedToUserId(card.getAssignedTo() != null ? card.getAssignedTo().getId() : null)
-                .createdByUserId(creatorUserId)
-                .createdByUsername(creatorUsername)
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        eventPublisher.publishCardCreated(event);
-    }
-
-
-    /**
-     * Send WebSocket update to board subscribers.
-     */
-    private void sendWebSocketUpdate(Long boardId, String eventType, Object data) {
-        try {
-            Map<String, Object> message = new HashMap<>();
-            message.put("type", eventType);
-            message.put("data", data);
-            message.put("timestamp", LocalDateTime.now());
-
-            String destination = "/topic/board/" + boardId;
-            messagingTemplate.convertAndSend(destination, (Object) message);
-            log.debug("Sent WebSocket update for board {}: {}", boardId, eventType);
-        } catch (Exception e) {
-            log.error("Failed to send WebSocket update: {}", e.getMessage());
-        }
-    }
-
-    /**
-     * Ensure the user is a member of the board. Adds them as MEMBER if not already present.
-     */
     private void ensureBoardMembership(Board board, User user) {
         if (!boardMemberRepository.existsByBoardIdAndUserId(board.getId(), user.getId())) {
             boardMemberRepository.save(BoardMember.builder()
@@ -299,9 +215,6 @@ public class CardService {
         }
     }
 
-    /**
-     * Log card created activity.
-     */
     private void logCardCreated(Card card, User creator) {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("card_title", card.getTitle());

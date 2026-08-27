@@ -67,7 +67,17 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
            "LEFT JOIN FETCH l.cards " +
            "WHERE l.board.id = :boardId " +
            "ORDER BY l.position ASC")
-    List<BoardList> findListsWithCardsByBoardId(Long boardId);
+    List<BoardList> findListsWithCardsByBoardId(@Param("boardId") Long boardId);
+
+    /**
+     * Batch-fetch cards for all lists across multiple boards in a single query.
+     * Used by getAllBoards to avoid N+1 (one query per board).
+     */
+    @Query("SELECT DISTINCT l FROM BoardList l " +
+           "LEFT JOIN FETCH l.cards " +
+           "WHERE l.board.id IN :boardIds " +
+           "ORDER BY l.position ASC")
+    List<BoardList> findListsWithCardsByBoardIds(@Param("boardIds") List<Long> boardIds);
 
     /**
      * Fetch cards with their labels for a specific board (third step).

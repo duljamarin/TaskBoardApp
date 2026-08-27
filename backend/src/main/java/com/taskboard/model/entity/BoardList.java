@@ -45,6 +45,9 @@ public class BoardList implements Serializable {
     @Builder.Default
     private List<Card> cards = new ArrayList<>();
 
+    @Version
+    private Long version;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

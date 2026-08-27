@@ -33,6 +33,8 @@ public class Comment implements Serializable {
     private String content;
     @Builder.Default
     private Boolean edited = false;
+    @Version
+    private Long version;
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
