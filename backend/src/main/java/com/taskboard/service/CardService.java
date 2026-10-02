@@ -21,9 +21,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -154,10 +152,13 @@ public class CardService {
             ensureBoardMembership(card.getBoard(), card.getAssignedTo());
         }
 
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("card_title", card.getTitle());
-        activityLogService.logActivity(card.getBoard(), card.getAssignedTo(), ActivityType.CARD_UPDATED,
-                String.format("Card '%s' was updated", card.getTitle()), metadata);
+        activityLogService.record(ActivityRecord.builder()
+                .board(card.getBoard())
+                .user(card.getAssignedTo())
+                .type(ActivityType.CARD_UPDATED)
+                .description(String.format("Card '%s' was updated", card.getTitle()))
+                .detail("card_title", card.getTitle())
+                .build());
 
         CardDTO cardDTO = CardMapper.toDTO(card);
         eventPublisher.publishEvent(CardUpdatedAppEvent.builder()
@@ -192,10 +193,12 @@ public class CardService {
 
         log.info("Deleted card: {}", cardTitle);
 
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("card_title", cardTitle);
-        activityLogService.logActivity(board, null, ActivityType.CARD_DELETED,
-                String.format("Card '%s' was deleted", cardTitle), metadata);
+        activityLogService.record(ActivityRecord.builder()
+                .board(board)
+                .type(ActivityType.CARD_DELETED)
+                .description(String.format("Card '%s' was deleted", cardTitle))
+                .detail("card_title", cardTitle)
+                .build());
 
         eventPublisher.publishEvent(CardDeletedAppEvent.builder()
                 .boardId(boardId)
@@ -216,14 +219,16 @@ public class CardService {
     }
 
     private void logCardCreated(Card card, User creator) {
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("card_title", card.getTitle());
-        metadata.put("list_name", card.getList().getName());
-        metadata.put("priority", card.getPriority().name());
-        metadata.put("created_by", creator.getUsername());
-
-        activityLogService.logActivity(card.getBoard(), creator, ActivityType.CARD_CREATED,
-                String.format("Card '%s' was created in '%s' by %s",
-                    card.getTitle(), card.getList().getName(), creator.getUsername()), metadata);
+        activityLogService.record(ActivityRecord.builder()
+                .board(card.getBoard())
+                .user(creator)
+                .type(ActivityType.CARD_CREATED)
+                .description(String.format("Card '%s' was created in '%s' by %s",
+                        card.getTitle(), card.getList().getName(), creator.getUsername()))
+                .detail("card_title", card.getTitle())
+                .detail("list_name", card.getList().getName())
+                .detail("priority", card.getPriority().name())
+                .detail("created_by", creator.getUsername())
+                .build());
     }
 }

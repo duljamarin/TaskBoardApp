@@ -2,6 +2,7 @@ package com.taskboard.service;
 
 import com.taskboard.exception.ResourceNotFoundException;
 import com.taskboard.model.dto.BoardDTO;
+import com.taskboard.service.event.BoardCreatedAppEvent;
 import com.taskboard.model.dto.CreateBoardRequest;
 import com.taskboard.model.entity.Board;
 import com.taskboard.model.entity.User;
@@ -132,7 +133,7 @@ class BoardServiceTest {
         assertThat(result).isNotNull();
         verify(userRepository).findById(1L);
         verify(boardRepository).save(any(Board.class));
-        verify(eventPublisher).publishEvent(any());
+        verify(eventPublisher).publishEvent(any(BoardCreatedAppEvent.class));
     }
 
     @Test

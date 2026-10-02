@@ -33,7 +33,7 @@ public class BoardEventListener {
     @TransactionalEventListener
     public void onCardCreated(CardCreatedAppEvent event) {
         // RabbitMQ
-        eventPublisher.publishCardCreated(CardCreatedEvent.builder()
+        eventPublisher.publish(CardCreatedEvent.builder()
                 .cardId(event.getCardId())
                 .cardTitle(event.getCardTitle())
                 .boardId(event.getBoardId())
@@ -68,7 +68,7 @@ public class BoardEventListener {
     @TransactionalEventListener
     public void onCardMoved(CardMovedAppEvent event) {
         // RabbitMQ
-        eventPublisher.publishCardMoved(CardMovedEvent.builder()
+        eventPublisher.publish(CardMovedEvent.builder()
                 .cardId(event.getCardId())
                 .cardTitle(event.getCardTitle())
                 .boardId(event.getBoardId())
@@ -94,7 +94,7 @@ public class BoardEventListener {
 
     @TransactionalEventListener
     public void onBoardCreated(BoardCreatedAppEvent event) {
-        eventPublisher.publishBoardCreated(BoardCreatedEvent.builder()
+        eventPublisher.publish(BoardCreatedEvent.builder()
                 .boardId(event.getBoardId())
                 .boardName(event.getBoardName())
                 .description(event.getDescription())
@@ -108,7 +108,7 @@ public class BoardEventListener {
     @TransactionalEventListener
     public void onCommentAdded(CommentAddedAppEvent event) {
         // RabbitMQ
-        eventPublisher.publishCommentAdded(CommentAddedEvent.builder()
+        eventPublisher.publish(CommentAddedEvent.builder()
                 .commentId(event.getCommentId())
                 .cardId(event.getCardId())
                 .cardTitle(event.getCardTitle())

@@ -21,9 +21,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -74,13 +72,15 @@ public class CommentService {
         comment = commentRepository.save(comment);
         log.info("Created comment {} on card '{}'", comment.getId(), card.getTitle());
 
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("comment_id", comment.getId());
-        metadata.put("author", author.getUsername());
-        activityLogService.logActivity(
-                card.getBoard(), author, ActivityType.COMMENT_ADDED,
-                String.format("'%s' commented on card '%s'", author.getUsername(), card.getTitle()),
-                metadata);
+        activityLogService.record(ActivityRecord.builder()
+                .board(card.getBoard())
+                .user(author)
+                .type(ActivityType.COMMENT_ADDED)
+                .description(String.format("'%s' commented on card '%s'",
+                        author.getUsername(), card.getTitle()))
+                .detail("comment_id", comment.getId())
+                .detail("author", author.getUsername())
+                .build());
 
         String preview = comment.getContent().length() > 100
                 ? comment.getContent().substring(0, 100) + "..."

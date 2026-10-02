@@ -4,22 +4,34 @@ import com.taskboard.model.event.BoardCreatedEvent;
 import com.taskboard.model.event.CardCreatedEvent;
 import com.taskboard.model.event.CardMovedEvent;
 import com.taskboard.model.event.CommentAddedEvent;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Event publisher for sending messages to RabbitMQ.
- * Publishes card and board events to appropriate exchanges.
+ *
+ * <p>Each event type is registered once against its exchange and routing key; {@link #publish}
+ * then looks the destination up, so adding an event type means adding a single registry entry
+ * rather than another publish method.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class EventPublisher {
 
+    /** Where an event type is sent. */
+    private record Destination(String exchange, String routingKey) {}
+
     private final RabbitTemplate rabbitTemplate;
+
+    private final Map<Class<?>, Destination> routes = new HashMap<>();
 
     @Value("${taskboard.rabbitmq.exchange.card-events:taskboard.card.events}")
     private String cardEventsExchange;
@@ -39,47 +51,34 @@ public class EventPublisher {
     @Value("${taskboard.rabbitmq.routing-key.comment-added:comment.added}")
     private String commentAddedRoutingKey;
 
-    public void publishCardMoved(CardMovedEvent event) {
-        try {
-            log.info("Publishing CardMovedEvent: cardId={} exchange={} routingKey={}",
-                    event.getCardId(), cardEventsExchange, cardMovedRoutingKey);
-            rabbitTemplate.convertAndSend(cardEventsExchange, cardMovedRoutingKey, event);
-            log.debug("Published CardMovedEvent for card '{}'", event.getCardTitle());
-        } catch (Exception e) {
-            log.error("Failed to publish CardMovedEvent: {}", e.getMessage(), e);
-        }
+    @PostConstruct
+    void registerRoutes() {
+        routes.put(CardMovedEvent.class, new Destination(cardEventsExchange, cardMovedRoutingKey));
+        routes.put(CardCreatedEvent.class, new Destination(cardEventsExchange, cardCreatedRoutingKey));
+        routes.put(CommentAddedEvent.class, new Destination(cardEventsExchange, commentAddedRoutingKey));
+        routes.put(BoardCreatedEvent.class, new Destination(boardEventsExchange, boardCreatedRoutingKey));
     }
 
-    public void publishCardCreated(CardCreatedEvent event) {
-        try {
-            log.info("Publishing CardCreatedEvent: cardId={} assignedTo={} exchange={} routingKey={}",
-                    event.getCardId(), event.getAssignedToUserId(), cardEventsExchange, cardCreatedRoutingKey);
-            rabbitTemplate.convertAndSend(cardEventsExchange, cardCreatedRoutingKey, event);
-            log.debug("Published CardCreatedEvent for card '{}'", event.getCardTitle());
-        } catch (Exception e) {
-            log.error("Failed to publish CardCreatedEvent: {}", e.getMessage(), e);
+    /**
+     * Publish a domain event to its registered exchange.
+     *
+     * <p>Failures are logged and swallowed: messaging is a side effect and must not fail the
+     * originating request.
+     */
+    public void publish(Object event) {
+        Destination destination = routes.get(event.getClass());
+        if (destination == null) {
+            log.error("No RabbitMQ destination registered for event type: {}", event.getClass().getName());
+            return;
         }
-    }
 
-    public void publishBoardCreated(BoardCreatedEvent event) {
         try {
-            log.info("Publishing BoardCreatedEvent: exchange={} routingKey={}",
-                    boardEventsExchange, boardCreatedRoutingKey);
-            rabbitTemplate.convertAndSend(boardEventsExchange, boardCreatedRoutingKey, event);
-            log.debug("Published BoardCreatedEvent for board '{}'", event.getBoardName());
+            log.info("Publishing {}: exchange={} routingKey={}",
+                    event.getClass().getSimpleName(), destination.exchange(), destination.routingKey());
+            rabbitTemplate.convertAndSend(destination.exchange(), destination.routingKey(), event);
+            log.debug("Published {}: {}", event.getClass().getSimpleName(), event);
         } catch (Exception e) {
-            log.error("Failed to publish BoardCreatedEvent: {}", e.getMessage(), e);
-        }
-    }
-
-    public void publishCommentAdded(CommentAddedEvent event) {
-        try {
-            log.info("Publishing CommentAddedEvent: exchange={} routingKey={}",
-                    cardEventsExchange, commentAddedRoutingKey);
-            rabbitTemplate.convertAndSend(cardEventsExchange, commentAddedRoutingKey, event);
-            log.debug("Published CommentAddedEvent on card '{}'", event.getCardTitle());
-        } catch (Exception e) {
-            log.error("Failed to publish CommentAddedEvent: {}", e.getMessage(), e);
+            log.error("Failed to publish {}: {}", event.getClass().getSimpleName(), e.getMessage(), e);
         }
     }
 }

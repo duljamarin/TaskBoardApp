@@ -2,9 +2,6 @@ package com.taskboard.service;
 
 import com.taskboard.model.dto.ActivityLogDTO;
 import com.taskboard.model.entity.ActivityLog;
-import com.taskboard.model.entity.ActivityType;
-import com.taskboard.model.entity.Board;
-import com.taskboard.model.entity.User;
 import com.taskboard.repository.ActivityLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,8 +10,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -29,18 +26,18 @@ public class ActivityLogService {
     private final ActivityLogRepository activityLogRepository;
 
     /**
-     * Log an activity.
+     * Persist an activity described by an {@link ActivityRecord}.
      */
     @Transactional
-    public void logActivity(Board board, User user, ActivityType type, String description, Map<String, Object> metadata) {
-        log.debug("Logging activity: {} - {}", type, description);
+    public void record(ActivityRecord record) {
+        log.debug("Logging activity: {} - {}", record.getType(), record.getDescription());
 
         ActivityLog activityLog = ActivityLog.builder()
-                .board(board)
-                .user(user)
-                .activityType(type)
-                .description(description)
-                .metadata(metadata)
+                .board(record.getBoard())
+                .user(record.getUser())
+                .activityType(record.getType())
+                .description(record.getDescription())
+                .metadata(new HashMap<>(record.getDetails()))
                 .build();
 
         activityLogRepository.save(activityLog);

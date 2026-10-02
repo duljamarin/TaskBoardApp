@@ -1,10 +1,9 @@
 package com.taskboard.service;
 
 import com.taskboard.exception.ResourceNotFoundException;
-import com.taskboard.model.dto.CardMapper;
 import com.taskboard.model.dto.CreateListRequest;
 import com.taskboard.model.dto.ListDTO;
-import com.taskboard.model.dto.CardDTO;
+import com.taskboard.model.dto.ListMapper;
 import com.taskboard.model.entity.*;
 import com.taskboard.repository.BoardRepository;
 import com.taskboard.repository.ListRepository;
@@ -14,9 +13,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -45,7 +42,7 @@ public class ListService {
         }
 
         return listRepository.findByBoardIdOrderByPositionAsc(boardId).stream()
-                .map(this::convertToDTO)
+                .map(ListMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
@@ -57,7 +54,7 @@ public class ListService {
         log.debug("Fetching list with id: {}", id);
         BoardList list = listRepository.findByIdWithCards(id)
                 .orElseThrow(() -> new ResourceNotFoundException("List", "id", id));
-        return convertToDTOWithCards(list);
+        return ListMapper.toDTOWithCards(list);
     }
 
     /**
@@ -93,14 +90,15 @@ public class ListService {
         list = listRepository.save(list);
         log.info("Created list with id: {}", list.getId());
 
-        // Log activity
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("list_name", list.getName());
-        metadata.put("position", list.getPosition());
-        activityLogService.logActivity(board, null, ActivityType.LIST_CREATED,
-                String.format("List '%s' was created", list.getName()), metadata);
+        activityLogService.record(ActivityRecord.builder()
+                .board(board)
+                .type(ActivityType.LIST_CREATED)
+                .description(String.format("List '%s' was created", list.getName()))
+                .detail("list_name", list.getName())
+                .detail("position", list.getPosition())
+                .build());
 
-        return convertToDTO(list);
+        return ListMapper.toDTO(list);
     }
 
     /**
@@ -125,13 +123,14 @@ public class ListService {
         list = listRepository.save(list);
         log.info("Updated list: {}", list.getName());
 
-        // Log activity
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("list_name", list.getName());
-        activityLogService.logActivity(list.getBoard(), null, ActivityType.LIST_UPDATED,
-                String.format("List '%s' was updated", list.getName()), metadata);
+        activityLogService.record(ActivityRecord.builder()
+                .board(list.getBoard())
+                .type(ActivityType.LIST_UPDATED)
+                .description(String.format("List '%s' was updated", list.getName()))
+                .detail("list_name", list.getName())
+                .build());
 
-        return convertToDTO(list);
+        return ListMapper.toDTO(list);
     }
 
     /**
@@ -156,39 +155,12 @@ public class ListService {
 
         log.info("Deleted list: {}", listName);
 
-        // Log activity
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("list_name", listName);
-        activityLogService.logActivity(board, null, ActivityType.LIST_DELETED,
-                String.format("List '%s' was deleted", listName), metadata);
-    }
-
-    /**
-     * Convert BoardList entity to DTO (without cards).
-     */
-    private ListDTO convertToDTO(BoardList list) {
-        return ListDTO.builder()
-                .id(list.getId())
-                .name(list.getName())
-                .boardId(list.getBoard().getId())
-                .position(list.getPosition())
-                .createdAt(list.getCreatedAt())
-                .updatedAt(list.getUpdatedAt())
-                .build();
-    }
-
-    /**
-     * Convert BoardList entity to DTO with cards.
-     */
-    private ListDTO convertToDTOWithCards(BoardList list) {
-        ListDTO dto = convertToDTO(list);
-
-        List<CardDTO> cardDTOs = list.getCards().stream()
-                .map(this::convertCardToDTO)
-                .collect(Collectors.toList());
-
-        dto.setCards(cardDTOs);
-        return dto;
+        activityLogService.record(ActivityRecord.builder()
+                .board(board)
+                .type(ActivityType.LIST_DELETED)
+                .description(String.format("List '%s' was deleted", listName))
+                .detail("list_name", listName)
+                .build());
     }
 
     /**
@@ -197,13 +169,6 @@ public class ListService {
     @Transactional(readOnly = true)
     public long countAllLists() {
         return listRepository.count();
-    }
-
-    /**
-     * Convert Card entity to DTO.
-     */
-    private CardDTO convertCardToDTO(Card card) {
-        return CardMapper.toDTO(card);
     }
 }
 

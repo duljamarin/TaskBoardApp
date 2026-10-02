@@ -3,6 +3,7 @@ package com.taskboard.service;
 import com.taskboard.exception.ResourceNotFoundException;
 import com.taskboard.model.dto.CreateLabelRequest;
 import com.taskboard.model.dto.LabelDTO;
+import com.taskboard.model.dto.LabelMapper;
 import com.taskboard.model.entity.Board;
 import com.taskboard.model.entity.Card;
 import com.taskboard.model.entity.Label;
@@ -41,7 +42,7 @@ public class LabelService {
             throw new ResourceNotFoundException("Board", "id", boardId);
         }
         return labelRepository.findByBoardIdOrderByNameAsc(boardId).stream()
-                .map(this::toDTO)
+                .map(LabelMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
@@ -68,7 +69,7 @@ public class LabelService {
 
         label = labelRepository.save(label);
         log.info("Created label with id: {}", label.getId());
-        return toDTO(label);
+        return LabelMapper.toDTO(label);
     }
 
     /**
@@ -95,7 +96,7 @@ public class LabelService {
 
         label = labelRepository.save(label);
         log.info("Updated label: {}", label.getName());
-        return toDTO(label);
+        return LabelMapper.toDTO(label);
     }
 
     /**
@@ -165,22 +166,9 @@ public class LabelService {
                 .orElseThrow(() -> new ResourceNotFoundException("Card", "id", cardId));
 
         return card.getLabels().stream()
-                .map(this::toDTO)
+                .map(LabelMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Convert Label entity to DTO.
-     */
-    private LabelDTO toDTO(Label label) {
-        return LabelDTO.builder()
-                .id(label.getId())
-                .name(label.getName())
-                .color(label.getColor())
-                .boardId(label.getBoard().getId())
-                .createdAt(label.getCreatedAt())
-                .updatedAt(label.getUpdatedAt())
-                .build();
-    }
 }
 

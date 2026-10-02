@@ -15,9 +15,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -51,7 +49,7 @@ public class BoardService {
         }
 
         return boards.stream()
-                .map(this::convertToDTOWithDetails)
+                .map(BoardMapper::toDTOWithDetails)
                 .collect(Collectors.toList());
     }
 
@@ -68,7 +66,7 @@ public class BoardService {
             boardRepository.findCardsWithLabelsByBoardId(id);
         }
 
-        return convertToDTOWithDetails(board);
+        return BoardMapper.toDTOWithDetails(board);
     }
 
     @CacheEvict(value = "boards", allEntries = true)
@@ -107,7 +105,7 @@ public class BoardService {
                 .createdByUsername(owner.getUsername())
                 .build());
 
-        return convertToDTO(board);
+        return BoardMapper.toDTO(board);
     }
 
     @CacheEvict(value = "boards", allEntries = true)
@@ -132,12 +130,15 @@ public class BoardService {
         board = boardRepository.save(board);
         log.info("Updated board: {}", board.getName());
 
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("board_name", board.getName());
-        activityLogService.logActivity(board, board.getOwner(), ActivityType.BOARD_UPDATED,
-                String.format("Board '%s' was updated", board.getName()), metadata);
+        activityLogService.record(ActivityRecord.builder()
+                .board(board)
+                .user(board.getOwner())
+                .type(ActivityType.BOARD_UPDATED)
+                .description(String.format("Board '%s' was updated", board.getName()))
+                .detail("board_name", board.getName())
+                .build());
 
-        return convertToDTO(board);
+        return BoardMapper.toDTO(board);
     }
 
     @CacheEvict(value = "boards", allEntries = true)
@@ -153,59 +154,23 @@ public class BoardService {
 
         log.info("Archived board: {}", board.getName());
 
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("board_name", board.getName());
-        activityLogService.logActivity(board, board.getOwner(), ActivityType.BOARD_ARCHIVED,
-                String.format("Board '%s' was archived", board.getName()), metadata);
+        activityLogService.record(ActivityRecord.builder()
+                .board(board)
+                .user(board.getOwner())
+                .type(ActivityType.BOARD_ARCHIVED)
+                .description(String.format("Board '%s' was archived", board.getName()))
+                .detail("board_name", board.getName())
+                .build());
     }
 
     private void logBoardCreated(Board board) {
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("board_name", board.getName());
-        metadata.put("color", board.getColor());
-
-        activityLogService.logActivity(board, board.getOwner(), ActivityType.BOARD_CREATED,
-                String.format("Board '%s' was created", board.getName()), metadata);
-    }
-
-    private BoardDTO convertToDTO(Board board) {
-        return BoardDTO.builder()
-                .id(board.getId())
-                .name(board.getName())
-                .description(board.getDescription())
-                .color(board.getColor())
-                .ownerId(board.getOwner() != null ? board.getOwner().getId() : null)
-                .ownerUsername(board.getOwner() != null ? board.getOwner().getUsername() : null)
-                .archived(board.getArchived())
-                .createdAt(board.getCreatedAt())
-                .updatedAt(board.getUpdatedAt())
-                .build();
-    }
-
-    private BoardDTO convertToDTOWithDetails(Board board) {
-        BoardDTO dto = convertToDTO(board);
-
-        List<ListDTO> listDTOs = board.getLists().stream()
-                .map(this::convertListToDTO)
-                .collect(Collectors.toList());
-
-        dto.setLists(listDTOs);
-        return dto;
-    }
-
-    private ListDTO convertListToDTO(BoardList list) {
-        List<CardDTO> cardDTOs = list.getCards().stream()
-                .map(CardMapper::toDTO)
-                .collect(Collectors.toList());
-
-        return ListDTO.builder()
-                .id(list.getId())
-                .name(list.getName())
-                .boardId(list.getBoard().getId())
-                .position(list.getPosition())
-                .cards(cardDTOs)
-                .createdAt(list.getCreatedAt())
-                .updatedAt(list.getUpdatedAt())
-                .build();
+        activityLogService.record(ActivityRecord.builder()
+                .board(board)
+                .user(board.getOwner())
+                .type(ActivityType.BOARD_CREATED)
+                .description(String.format("Board '%s' was created", board.getName()))
+                .detail("board_name", board.getName())
+                .detail("color", board.getColor())
+                .build());
     }
 }

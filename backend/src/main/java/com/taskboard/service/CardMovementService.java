@@ -16,8 +16,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * Service for card movement operations.
@@ -51,22 +50,7 @@ public class CardMovementService {
 
         validateMove(card, newList);
 
-        // Lock the affected list(s) in consistent order to prevent deadlocks
-        long oldListId2 = card.getList().getId();
-        long newListId2 = newList.getId();
-        if (oldListId2 <= newListId2) {
-            listRepository.findByIdForUpdate(oldListId2)
-                    .orElseThrow(() -> new ResourceNotFoundException("List", "id", oldListId2));
-            if (oldListId2 != newListId2) {
-                listRepository.findByIdForUpdate(newListId2)
-                        .orElseThrow(() -> new ResourceNotFoundException("List", "id", newListId2));
-            }
-        } else {
-            listRepository.findByIdForUpdate(newListId2)
-                    .orElseThrow(() -> new ResourceNotFoundException("List", "id", newListId2));
-            listRepository.findByIdForUpdate(oldListId2)
-                    .orElseThrow(() -> new ResourceNotFoundException("List", "id", oldListId2));
-        }
+        lockLists(card.getList().getId(), newList.getId());
 
         Long oldListId = card.getList().getId();
         String oldListName = card.getList().getName();
@@ -103,6 +87,16 @@ public class CardMovementService {
         return cardDTO;
     }
 
+    /**
+     * Lock the affected list rows, always in ascending id order, to prevent deadlocks
+     * between concurrent moves touching the same pair of lists.
+     */
+    private void lockLists(Long... listIds) {
+        Stream.of(listIds).distinct().sorted().forEach(id ->
+                listRepository.findByIdForUpdate(id)
+                        .orElseThrow(() -> new ResourceNotFoundException("List", "id", id)));
+    }
+
     private void validateMove(Card card, BoardList targetList) {
         if (!card.getList().getBoard().getId().equals(targetList.getBoard().getId())) {
             throw new IllegalArgumentException("Cannot move card to a list on a different board");
@@ -136,15 +130,16 @@ public class CardMovementService {
     }
 
     private void logCardMoved(Card card, String fromListName, User mover) {
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("card_title", card.getTitle());
-        metadata.put("from_list", fromListName);
-        metadata.put("to_list", card.getList().getName());
-        metadata.put("moved_by", mover.getUsername());
-
-        activityLogService.logActivity(card.getBoard(), mover, ActivityType.CARD_MOVED,
-                String.format("Card '%s' was moved from '%s' to '%s' by %s",
-                        card.getTitle(), fromListName, card.getList().getName(), mover.getUsername()),
-                metadata);
+        activityLogService.record(ActivityRecord.builder()
+                .board(card.getBoard())
+                .user(mover)
+                .type(ActivityType.CARD_MOVED)
+                .description(String.format("Card '%s' was moved from '%s' to '%s' by %s",
+                        card.getTitle(), fromListName, card.getList().getName(), mover.getUsername()))
+                .detail("card_title", card.getTitle())
+                .detail("from_list", fromListName)
+                .detail("to_list", card.getList().getName())
+                .detail("moved_by", mover.getUsername())
+                .build());
     }
 }

@@ -28,16 +28,13 @@ public class NotificationConsumer {
         Object event = messageConverter.fromMessage(message);
         log.info("Notification consumer received: {} ({})", event.getClass().getSimpleName(), event);
 
-        if (event instanceof CardMovedEvent e) {
-            handleCardMoved(e);
-        } else if (event instanceof CardCreatedEvent e) {
-            handleCardCreated(e);
-        } else if (event instanceof CommentAddedEvent e) {
-            handleCommentAdded(e);
-        } else if (event instanceof BoardCreatedEvent e) {
-            log.info("Board '{}' created by '{}'", e.getBoardName(), e.getCreatedByUsername());
-        } else {
-            log.warn("Unrecognized event type: {}", event.getClass().getName());
+        switch (event) {
+            case CardMovedEvent e -> handleCardMoved(e);
+            case CardCreatedEvent e -> handleCardCreated(e);
+            case CommentAddedEvent e -> handleCommentAdded(e);
+            case BoardCreatedEvent e ->
+                    log.info("Board '{}' created by '{}'", e.getBoardName(), e.getCreatedByUsername());
+            default -> log.warn("Unrecognized event type: {}", event.getClass().getName());
         }
     }
 

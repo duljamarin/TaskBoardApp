@@ -13,12 +13,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 /**
  * Service for authorization checks.
@@ -41,20 +44,15 @@ public class AuthorizationService {
     private static final SimpleGrantedAuthority ROLE_MODERATOR = new SimpleGrantedAuthority("ROLE_MODERATOR");
 
     public boolean isAdmin() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth != null && auth.getAuthorities().contains(ROLE_ADMIN);
+        return hasAuthority(ROLE_ADMIN);
     }
 
     public boolean isModerator() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth != null && auth.getAuthorities().contains(ROLE_MODERATOR);
+        return hasAuthority(ROLE_MODERATOR);
     }
 
     public boolean isAdminOrModerator() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) return false;
-        return auth.getAuthorities().contains(ROLE_ADMIN)
-                || auth.getAuthorities().contains(ROLE_MODERATOR);
+        return hasAuthority(ROLE_ADMIN) || hasAuthority(ROLE_MODERATOR);
     }
 
     /**
@@ -145,14 +143,7 @@ public class AuthorizationService {
     }
 
     public Long getCurrentUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            throw new AccessDeniedException("User not authenticated");
-        }
-        if (auth.getPrincipal() instanceof UserPrincipal principal) {
-            return principal.getId();
-        }
-        throw new AccessDeniedException("Invalid authentication principal");
+        return getCurrentUser().getId();
     }
 
     public UserPrincipal getCurrentUser() {
@@ -171,11 +162,8 @@ public class AuthorizationService {
      */
     @Transactional(readOnly = true)
     public boolean canAccessBoard(Long boardId, UserPrincipal user) {
-        if (user.getAuthorities().contains(ROLE_ADMIN)
-                || user.getAuthorities().contains(ROLE_MODERATOR)) {
-            return true;
-        }
-        return boardMemberRepository.existsByBoardIdAndUserId(boardId, user.getId());
+        return hasElevatedRole(user.getAuthorities())
+                || boardMemberRepository.existsByBoardIdAndUserId(boardId, user.getId());
     }
 
     public void requireBoardAccess(Long boardId) {
@@ -201,16 +189,8 @@ public class AuthorizationService {
      * otherwise check board_members for the current user.
      */
     private boolean hasPermissionOnBoard(Long boardId) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return false;
-        }
-        if (auth.getAuthorities().contains(ROLE_ADMIN)
-                || auth.getAuthorities().contains(ROLE_MODERATOR)) {
-            return true;
-        }
-        UserPrincipal user = (UserPrincipal) auth.getPrincipal();
-        return boardMemberRepository.existsByBoardIdAndUserId(boardId, user.getId());
+        return checkBoard(boardId, userId ->
+                boardMemberRepository.existsByBoardIdAndUserId(boardId, userId));
     }
 
     /**
@@ -219,17 +199,37 @@ public class AuthorizationService {
      * Admin/moderator bypass all checks.
      */
     private boolean hasRoleOnBoard(Long boardId, BoardMemberRole minimumRole) {
+        return checkBoard(boardId, userId -> {
+            Optional<BoardMemberRole> role = boardMemberRepository.findRoleByBoardIdAndUserId(boardId, userId);
+            return role.map(r -> meetsMinimumRole(r, minimumRole)).orElse(false);
+        });
+    }
+
+    /**
+     * Shared skeleton for board checks: reject anonymous callers, let admins/moderators
+     * through, and otherwise delegate to the membership check for the current user's id.
+     */
+    private boolean checkBoard(Long boardId, Predicate<Long> membershipCheck) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
             return false;
         }
-        if (auth.getAuthorities().contains(ROLE_ADMIN)
-                || auth.getAuthorities().contains(ROLE_MODERATOR)) {
+        if (hasElevatedRole(auth.getAuthorities())) {
             return true;
         }
-        UserPrincipal user = (UserPrincipal) auth.getPrincipal();
-        Optional<BoardMemberRole> role = boardMemberRepository.findRoleByBoardIdAndUserId(boardId, user.getId());
-        return role.map(r -> meetsMinimumRole(r, minimumRole)).orElse(false);
+        if (!(auth.getPrincipal() instanceof UserPrincipal principal)) {
+            return false;
+        }
+        return membershipCheck.test(principal.getId());
+    }
+
+    private static boolean hasAuthority(SimpleGrantedAuthority authority) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getAuthorities().contains(authority);
+    }
+
+    private static boolean hasElevatedRole(Collection<? extends GrantedAuthority> authorities) {
+        return authorities.contains(ROLE_ADMIN) || authorities.contains(ROLE_MODERATOR);
     }
 
     private static boolean meetsMinimumRole(BoardMemberRole actual, BoardMemberRole required) {
